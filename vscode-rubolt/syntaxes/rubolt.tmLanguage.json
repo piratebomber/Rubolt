@@ -1,0 +1,165 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Rubolt",
+  "scopeName": "source.rubolt",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#functions" },
+    { "include": "#types" },
+    { "include": "#operators" },
+    { "include": "#constants" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.rubolt",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.line.number-sign.rubolt",
+          "match": "#.*$"
+        },
+        {
+          "name": "comment.block.rubolt",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.rubolt",
+          "match": "\\b(if|else|elif|for|while|break|continue|return|pass)\\b"
+        },
+        {
+          "name": "keyword.other.rubolt",
+          "match": "\\b(let|const|var|def|function|class|import|from|as)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.rubolt",
+          "match": "\\b(and|or|not|in|is)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.rubolt",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rubolt",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.rubolt",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rubolt",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.interpolated.rubolt",
+          "begin": "f\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.rubolt",
+              "match": "\\\\."
+            },
+            {
+              "name": "meta.embedded.line.rubolt",
+              "begin": "\\{",
+              "end": "\\}",
+              "patterns": [
+                { "include": "#expressions" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.rubolt",
+          "match": "\\b\\d+\\.?\\d*\\b"
+        }
+      ]
+    },
+    "functions": {
+      "patterns": [
+        {
+          "name": "entity.name.function.rubolt",
+          "match": "\\b(print|printf)\\b"
+        },
+        {
+          "name": "entity.name.function.rubolt",
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?=\\()"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "storage.type.rubolt",
+          "match": "\\b(string|number|bool|void|any)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.rubolt",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.comparison.rubolt",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.logical.rubolt",
+          "match": "(&&|\\|\\||!)"
+        },
+        {
+          "name": "keyword.operator.assignment.rubolt",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.arrow.rubolt",
+          "match": "->"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.rubolt",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+    "expressions": {
+      "patterns": [
+        { "include": "#keywords" },
+        { "include": "#strings" },
+        { "include": "#numbers" },
+        { "include": "#functions" },
+        { "include": "#operators" },
+        { "include": "#constants" }
+      ]
+    }
+  }
+}

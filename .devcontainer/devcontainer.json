@@ -1,0 +1,20 @@
+{
+  "name": "Rubolt DevContainer",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "editor.tabSize": 4
+  },
+  "extensions": [
+    "ms-vscode.cpptools",
+    "ms-python.python"
+  ],
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/workspaces/Rubolt,type=bind,consistency=cached"
+  ],
+  "remoteUser": "vscode",
+  "postCreateCommand": "bash scripts/linux/build.sh"
+}

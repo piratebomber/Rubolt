@@ -1,0 +1,29 @@
+// String object helpers
+
+// Provides object-like helpers for strings to complement C string module
+
+import string
+
+// Returns uppercase version of input
+
+def upper(s: string) -> string {
+    return string.upper(s);
+}
+
+// Returns lowercase version of input
+
+def lower(s: string) -> string {
+    return string.lower(s);
+}
+
+// Returns length as number
+
+def len(s: string) -> number {
+    return string.len(s);
+}
+
+// Concatenate
+
+def concat(a: string, b: string) -> string {
+    return string.concat(a, b);
+}

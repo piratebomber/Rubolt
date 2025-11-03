@@ -1,0 +1,7 @@
+// Grammar test: expressions and precedence
+
+let a: number = 1 + 2 * 3;
+let b: number = (1 + 2) * 3;
+
+let c: bool = 1 < 2 && 3 > 2;
+let d: bool = not false or true;

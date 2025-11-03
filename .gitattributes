@@ -1,0 +1,5 @@
+# Auto text/binary normalization
+* text=auto
+
+# Treat .rbo as text
+*.rbo text eol=lf

@@ -1,0 +1,51 @@
+// Control Flow Examples in Rubolt
+
+// If-else statements (C-style syntax)
+let age: number = 25;
+
+if (age >= 18) {
+    print("You are an adult");
+} else {
+    print("You are a minor");
+}
+
+// While loop
+let counter: number = 0;
+while (counter < 3) {
+    printf("Counter: ");
+    print(counter);
+    counter = counter + 1;
+}
+
+// For loop with complex condition
+for (let i: number = 0; i < 10; i = i + 2) {
+    if (i > 5) {
+        print("Breaking at " + i);
+        break;
+    }
+    print(i);
+}
+
+// Function with conditional logic
+def max(a: number, b: number) -> number {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+let result: number = max(10, 20);
+print("Maximum: " + result);
+
+// Logical operators (both Python and C style)
+let x: bool = true;
+let y: bool = false;
+
+if (x && !y) {
+    print("C-style logical operators work!");
+}
+
+if (x and not y) {
+    print("Python-style logical operators work too!");
+}

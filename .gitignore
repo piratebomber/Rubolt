@@ -1,0 +1,19 @@
+# Git ignore rules
+/build/
+/.vscode/
+/.idea/
+/dist/
+/venv/
+__pycache__/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.gcda
+*.gcno
+*.gcov
+rbcompile
+rbcompile.exe
+bench_tmp.txt

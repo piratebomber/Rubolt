@@ -1,0 +1,23 @@
+// Number object helpers
+
+import math
+
+// Absolute value
+
+def abs(x: number) -> number {
+    return math.abs(x);
+}
+
+// Clamp value between min and max
+
+def clamp(x: number, minv: number, maxv: number) -> number {
+    if (x < minv) { return minv; }
+    if (x > maxv) { return maxv; }
+    return x;
+}
+
+// Linear interpolation
+
+def lerp(a: number, b: number, t: number) -> number {
+    return a + (b - a) * t;
+}

@@ -1,0 +1,52 @@
+// Example demonstrating standard library usage
+
+// Math module
+import math
+
+let x: number = 16;
+let sqrt_result: number = math.sqrt(x);
+print("Square root of 16: " + sqrt_result);
+
+let power: number = math.pow(2, 8);
+print("2^8 = " + power);
+
+// OS module  
+import os
+
+let current_dir: string = os.getcwd();
+print("Current directory: " + current_dir);
+
+let home: string = os.getenv("HOME");
+if (home != null) {
+    print("Home directory: " + home);
+}
+
+// File module
+import file
+
+let content: string = "Hello from Rubolt!";
+let written: bool = file.write("test.txt", content);
+
+if (written) {
+    print("File written successfully");
+    
+    if (file.exists("test.txt")) {
+        let read_content: string = file.read("test.txt");
+        print("File content: " + read_content);
+    }
+}
+
+// Time module
+import time
+
+let current_time: number = time.now();
+print("Current timestamp: " + current_time);
+
+print("Sleeping for 1 second...");
+time.sleep(1);
+print("Done!");
+
+// Sys module
+import sys
+
+print("Rubolt version: " + sys.version());

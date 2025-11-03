@@ -1,0 +1,13 @@
+// Array object helpers (illustrative)
+
+// Sum of 0..n-1
+
+def range_sum(n: number) -> number {
+    let s: number = 0;
+    let i: number = 0;
+    while (i < n) {
+        s = s + i;
+        i = i + 1;
+    }
+    return s;
+}

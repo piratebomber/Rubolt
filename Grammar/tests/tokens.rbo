@@ -1,0 +1,14 @@
+// Grammar test: tokens and literals
+
+// Numbers
+123
+45.67
+
+// Strings
+"hello"
+'world'
+
+// Identifiers
+let x: number = 1;
+const y: string = "s";
+var z = x + 2;

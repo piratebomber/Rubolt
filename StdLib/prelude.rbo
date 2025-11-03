@@ -1,0 +1,15 @@
+// Prelude standard library loaded before all programs
+
+// Print a banner function (example)
+def banner() -> void {
+    print("Rubolt Runtime Loaded");
+}
+
+// Math helpers in pure Rubolt (do not rely on native math)
+def max(a: number, b: number) -> number {
+    if (a > b) { return a; } else { return b; }
+}
+
+def min(a: number, b: number) -> number {
+    if (a < b) { return a; } else { return b; }
+}

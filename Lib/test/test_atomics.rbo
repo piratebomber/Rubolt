@@ -1,0 +1,14 @@
+// Tests for atomics module
+
+import atomics
+
+print("TEST: atomics create/inc/get")
+let ok: bool = atomics.create("counter", 0);
+print(ok);
+print(atomics.inc("counter"));
+print(atomics.inc("counter"));
+print(atomics.get("counter"));
+
+print("TEST: CAS")
+print(atomics.cas("counter", 2, 10));
+print(atomics.get("counter"));

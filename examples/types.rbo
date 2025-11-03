@@ -1,0 +1,61 @@
+// Type System Examples in Rubolt
+// Demonstrates TypeScript-like type annotations
+
+// Number types
+let integer: number = 42;
+let floating: number = 3.14159;
+let negative: number = -100;
+
+print("Integer: " + integer);
+print("Float: " + floating);
+print("Negative: " + negative);
+
+// String types
+let greeting: string = "Hello, World!";
+let name: string = 'Rubolt';
+let empty: string = "";
+
+print(greeting);
+print("Language: " + name);
+
+// Boolean types
+let isTrue: bool = true;
+let isFalse: bool = false;
+
+if (isTrue) {
+    print("Boolean true works!");
+}
+
+if (!isFalse) {
+    print("Boolean negation works!");
+}
+
+// Const vs Let (TypeScript style)
+const PI: number = 3.14159;
+let radius: number = 5;
+
+// PI = 3.14;  // This would error: Cannot assign to const
+
+let area: number = PI * radius * radius;
+print("Circle area: " + area);
+
+// Null type
+let nothing: any = null;
+
+if (nothing == null) {
+    print("Null comparison works!");
+}
+
+// Type inference (no explicit type annotation)
+let inferred = 100;  // inferred as number
+let inferredStr = "text";  // inferred as string
+
+print("Inferred number: " + inferred);
+print("Inferred string: " + inferredStr);
+
+// Function with void return type
+def logMessage(msg: string) -> void {
+    print("[LOG] " + msg);
+}
+
+logMessage("This is a log message");

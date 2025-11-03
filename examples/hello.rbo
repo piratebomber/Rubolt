@@ -1,0 +1,28 @@
+// Hello World in Rubolt
+// Demonstrates basic syntax combining Python, C, and TypeScript features
+
+// TypeScript-style variable declarations with types
+let message: string = "Hello, Rubolt!";
+const version: number = 1.0;
+
+// C-style printf
+printf("Welcome to Rubolt v");
+print(version);
+
+// Python-style print
+print(message);
+
+// Function with type annotations (Python + TypeScript style)
+def greet(name: string) -> string {
+    return "Hello, " + name + "!";
+}
+
+// Call the function
+let greeting: string = greet("World");
+print(greeting);
+
+// C-style for loop
+for (let i: number = 0; i < 5; i = i + 1) {
+    printf("Count: ");
+    print(i);
+}

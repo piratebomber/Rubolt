@@ -1,0 +1,46 @@
+# SDK HTTP Client Bindings
+# Simple HTTP client built on curl native bindings
+
+import native.curl as curl
+
+func get(url: str, headers: dict) -> dict {
+    let req = curl.new_request()
+    curl.set_url(req, url)
+    curl.set_method(req, "GET")
+    
+    for key, value in headers.items() {
+        curl.add_header(req, key, value)
+    }
+    
+    let response = curl.execute(req)
+    curl.cleanup(req)
+    return response
+}
+
+func post(url: str, body: str, headers: dict) -> dict {
+    let req = curl.new_request()
+    curl.set_url(req, url)
+    curl.set_method(req, "POST")
+    curl.set_body(req, body)
+    
+    for key, value in headers.items() {
+        curl.add_header(req, key, value)
+    }
+    
+    let response = curl.execute(req)
+    curl.cleanup(req)
+    return response
+}
+
+func download(url: str, output_path: str) -> bool {
+    let req = curl.new_request()
+    curl.set_url(req, url)
+    curl.set_output_file(req, output_path)
+    
+    let response = curl.execute(req)
+    curl.cleanup(req)
+    
+    return response["status"] == 200
+}
+
+export get, post, download

@@ -1,0 +1,13 @@
+// Benchmark: file IO
+
+import file
+
+let path: string = "bench_tmp.txt";
+let content: string = "x";
+let i: number = 0;
+while (i < 500) {
+    file.write(path, content);
+    content = content + "x";
+    i = i + 1;
+}
+print(file.exists(path));

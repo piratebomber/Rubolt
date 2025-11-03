@@ -1,0 +1,15 @@
+// Grammar test: statements and blocks
+
+if (true) {
+    print("then");
+} else {
+    print("else");
+}
+
+for (let i: number = 0; i < 3; i = i + 1) {
+    print(i);
+}
+
+while (false) {
+    print("never");
+}

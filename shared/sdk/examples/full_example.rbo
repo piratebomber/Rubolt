@@ -1,0 +1,72 @@
+# Full SDK Example
+# Demonstrates shared modules, globals, and SDK utilities
+
+import shared.modules.common as common
+import shared.modules.logger as log
+import shared.globals.config as config
+import shared.sdk.utils.profiler as prof
+
+func demo_shared_modules() {
+    log.info("Testing shared common module...")
+    
+    let clamped = common.clamp(150, 0, 100)
+    print("Clamped 150 to [0,100]: " + str(clamped))
+    
+    let path = common.join_path(["home", "user", "documents"])
+    print("Joined path: " + path)
+    
+    let safe = common.safe_divide(10.0, 0.0, -1.0)
+    print("Safe divide 10/0 (default -1): " + str(safe))
+}
+
+func demo_globals() {
+    log.info("Checking global configuration...")
+    
+    print("Version: " + config.VERSION)
+    print("Build: " + str(config.BUILD))
+    print("Debug mode: " + str(config.DEBUG_MODE))
+    print("Max workers: " + str(config.MAX_WORKERS))
+}
+
+func expensive_operation() {
+    # Simulate some work
+    let sum: int = 0
+    for i in range(0, 1000000) {
+        sum = sum + i
+    }
+    return sum
+}
+
+func demo_profiler() {
+    log.info("Running profiler demo...")
+    
+    prof.start("operation1")
+    let result1 = expensive_operation()
+    prof.stop("operation1")
+    
+    prof.start("operation2")
+    let result2 = expensive_operation()
+    prof.stop("operation2")
+    
+    prof.start("operation1")
+    let result3 = expensive_operation()
+    prof.stop("operation1")
+    
+    prof.report()
+}
+
+func main() {
+    log.info("=== Rubolt SDK Full Example ===")
+    
+    demo_shared_modules()
+    print()
+    
+    demo_globals()
+    print()
+    
+    demo_profiler()
+    
+    log.info("Example completed successfully!")
+}
+
+main()

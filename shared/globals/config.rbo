@@ -1,0 +1,23 @@
+# Global Configuration
+# Shared global variables accessible across Rubolt projects
+
+global VERSION: str = "1.0.0"
+global BUILD: int = 1001
+global DEBUG_MODE: bool = false
+global MAX_WORKERS: int = 4
+global TIMEOUT_SECONDS: int = 30
+
+# Paths
+global ROOT_DIR: str = "."
+global DATA_DIR: str = "./data"
+global CACHE_DIR: str = "./cache"
+global LOG_DIR: str = "./logs"
+
+# Feature flags
+global ENABLE_LOGGING: bool = true
+global ENABLE_CACHING: bool = true
+global ENABLE_METRICS: bool = false
+
+export VERSION, BUILD, DEBUG_MODE, MAX_WORKERS, TIMEOUT_SECONDS
+export ROOT_DIR, DATA_DIR, CACHE_DIR, LOG_DIR
+export ENABLE_LOGGING, ENABLE_CACHING, ENABLE_METRICS

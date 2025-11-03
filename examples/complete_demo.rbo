@@ -1,0 +1,219 @@
+// Complete Rubolt Feature Demonstration
+// Shows: Types, Functions, Modules, Control Flow, Error Handling
+
+// ============================================
+// 1. TYPE SYSTEM
+// ============================================
+
+// TypeScript-style declarations
+let name: string = "Rubolt Demo";
+const VERSION: number = 1.0;
+let isReady: bool = true;
+
+print("=== Type System Demo ===");
+print("Name: " + name);
+print("Version: " + VERSION);
+
+// ============================================
+// 2. FUNCTIONS WITH TYPE HINTS
+// ============================================
+
+print("\n=== Function Demo ===");
+
+// Python-style function with types
+def greet(name: string) -> string {
+    return "Hello, " + name + "!";
+}
+
+// C-style function
+def add(a: number, b: number) -> number {
+    return a + b;
+}
+
+// Recursive function
+def factorial(n: number) -> number {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+print(greet("Developer"));
+print("5 + 3 = " + add(5, 3));
+print("5! = " + factorial(5));
+
+// ============================================
+// 3. CONTROL FLOW (HYBRID SYNTAX)
+// ============================================
+
+print("\n=== Control Flow Demo ===");
+
+// C-style if/else with braces
+if (VERSION >= 1.0) {
+    print("✓ Production ready!");
+} else {
+    print("Still in beta");
+}
+
+// For loop (C-style)
+print("Counting:");
+for (let i: number = 1; i <= 3; i = i + 1) {
+    print("  " + i);
+}
+
+// While loop
+let counter: number = 0;
+while (counter < 3) {
+    print("Counter: " + counter);
+    counter = counter + 1;
+}
+
+// ============================================
+// 4. STANDARD LIBRARY - MATH
+// ============================================
+
+import math
+
+print("\n=== Math Module Demo ===");
+
+let sqrt_val: number = math.sqrt(16);
+print("sqrt(16) = " + sqrt_val);
+
+let power_val: number = math.pow(2, 10);
+print("2^10 = " + power_val);
+
+let abs_val: number = math.abs(-42);
+print("abs(-42) = " + abs_val);
+
+let pi_approx: number = 3.14159;
+let sin_val: number = math.sin(pi_approx / 2);
+print("sin(π/2) ≈ " + sin_val);
+
+// ============================================
+// 5. STANDARD LIBRARY - FILE OPERATIONS
+// ============================================
+
+import file
+
+print("\n=== File Module Demo ===");
+
+let content: string = "Hello from Rubolt!\nThis is a test file.";
+let write_success: bool = file.write("demo_output.txt", content);
+
+if (write_success) {
+    print("✓ File written successfully");
+    
+    if (file.exists("demo_output.txt")) {
+        print("✓ File exists");
+        
+        let read_content: string = file.read("demo_output.txt");
+        print("File content:");
+        print(read_content);
+    }
+}
+
+// ============================================
+// 6. STANDARD LIBRARY - OS & SYSTEM
+// ============================================
+
+import os
+import sys
+
+print("\n=== OS/System Demo ===");
+
+let cwd: string = os.getcwd();
+print("Current directory: " + cwd);
+
+print("Rubolt version: " + sys.version());
+
+// ============================================
+// 7. STANDARD LIBRARY - TIME
+// ============================================
+
+import time
+
+print("\n=== Time Module Demo ===");
+
+let timestamp: number = time.now();
+print("Current timestamp: " + timestamp);
+
+print("Waiting 1 second...");
+time.sleep(1);
+print("Done!");
+
+// ============================================
+// 8. LOGICAL OPERATORS (BOTH STYLES)
+// ============================================
+
+print("\n=== Logical Operators Demo ===");
+
+let x: bool = true;
+let y: bool = false;
+
+// C-style
+if (x && !y) {
+    print("✓ C-style operators (&&, ||, !) work");
+}
+
+// Python-style
+if (x and not y) {
+    print("✓ Python-style operators (and, or, not) work");
+}
+
+// ============================================
+// 9. COMPLEX EXAMPLE: DATA PROCESSING
+// ============================================
+
+print("\n=== Complex Example ===");
+
+def process_data(values: number, multiplier: number) -> number {
+    let result: number = values * multiplier;
+    let sqrt_result: number = math.sqrt(result);
+    return math.floor(sqrt_result);
+}
+
+def analyze(count: number) -> void {
+    print("Analyzing " + count + " items...");
+    
+    for (let i: number = 1; i <= count; i = i + 1) {
+        let processed: number = process_data(i * 10, 2);
+        
+        if (processed > 5) {
+            print("  Item " + i + ": " + processed + " (high)");
+        } else {
+            print("  Item " + i + ": " + processed);
+        }
+    }
+    
+    print("Analysis complete!");
+}
+
+analyze(5);
+
+// ============================================
+// 10. ERROR HANDLING EXAMPLE
+// ============================================
+
+print("\n=== Error Handling Demo ===");
+
+def safe_divide(a: number, b: number) -> number {
+    if (b == 0) {
+        print("Error: Division by zero!");
+        return 0;
+    }
+    return a / b;
+}
+
+let result1: number = safe_divide(10, 2);
+print("10 / 2 = " + result1);
+
+let result2: number = safe_divide(10, 0);
+print("10 / 0 = " + result2 + " (handled)");
+
+// ============================================
+// FINAL MESSAGE
+// ============================================
+
+print("\n=== Demo Complete ===");
+print("All features demonstrated successfully!");
+print("Check ADVANCED.md for more information.");

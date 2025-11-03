@@ -1,0 +1,11 @@
+// Tests for string module
+
+import string
+
+print("TEST: string.len('abc') == 3")
+let l: number = string.len("abc");
+print(l);
+
+print("TEST: upper/lower")
+print(string.upper("hello"));
+print(string.lower("WORLD"));

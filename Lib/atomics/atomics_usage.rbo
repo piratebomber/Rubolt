@@ -1,0 +1,27 @@
+// Atomics usage helpers
+
+import atomics
+
+// Create an atomic counter with initial value
+
+def counter_create(name: string, initial: number) -> bool {
+    return atomics.create(name, initial);
+}
+
+// Increment and return new value
+
+def counter_inc(name: string) -> number {
+    return atomics.inc(name);
+}
+
+// Get current value
+
+def counter_get(name: string) -> number {
+    return atomics.get(name);
+}
+
+// Compare and swap
+
+def counter_cas(name: string, expected: number, desired: number) -> bool {
+    return atomics.cas(name, expected, desired);
+}

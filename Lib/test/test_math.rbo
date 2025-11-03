@@ -1,0 +1,11 @@
+// Tests for math module
+
+import math
+
+print("TEST: math.sqrt(9) == 3")
+let a: number = math.sqrt(9);
+print(a);
+
+print("TEST: math.pow(2, 5) == 32")
+let b: number = math.pow(2, 5);
+print(b);

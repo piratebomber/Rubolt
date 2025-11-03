@@ -1,0 +1,45 @@
+// Function Examples in Rubolt
+
+// Simple function
+def add(a: number, b: number) -> number {
+    return a + b;
+}
+
+// Function without return type
+def sayHello(name: string) {
+    print("Hello, " + name + "!");
+}
+
+// Recursive function (factorial)
+def factorial(n: number) -> number {
+    if (n <= 1) {
+        return 1;
+    }
+    return n * factorial(n - 1);
+}
+
+// Function using Python-style syntax
+def greet_pythonic(name: string) -> string:
+    return "Greetings, " + name + "!"
+
+// Test the functions
+print("5 + 3 = " + add(5, 3));
+
+sayHello("Rubolt Developer");
+
+let fact5: number = factorial(5);
+print("5! = " + fact5);
+
+let msg: string = greet_pythonic("Pythonista");
+print(msg);
+
+// Nested function calls
+def double(x: number) -> number {
+    return x * 2;
+}
+
+def triple(x: number) -> number {
+    return x * 3;
+}
+
+print("double(triple(4)) = " + double(triple(4)));

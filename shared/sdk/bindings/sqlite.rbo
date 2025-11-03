@@ -1,0 +1,47 @@
+# SDK SQLite Bindings
+# High-level SQLite database interface for Rubolt
+
+# Note: Requires native sqlite3 extension to be loaded
+
+import native.sqlite3 as sql3
+
+func connect(path: str) -> int {
+    let conn_id: int = sql3.open(path)
+    if conn_id < 0 {
+        error("Failed to open database: " + path)
+    }
+    return conn_id
+}
+
+func execute(conn: int, query: str) -> list {
+    let result = sql3.exec(conn, query)
+    if result == null {
+        error("Query execution failed: " + query)
+        return []
+    }
+    return result
+}
+
+func query(conn: int, sql: str, params: list) -> list {
+    # Prepared statement with parameter binding
+    return sql3.query_prepared(conn, sql, params)
+}
+
+func close(conn: int) {
+    sql3.close(conn)
+}
+
+func begin_transaction(conn: int) {
+    execute(conn, "BEGIN TRANSACTION")
+}
+
+func commit(conn: int) {
+    execute(conn, "COMMIT")
+}
+
+func rollback(conn: int) {
+    execute(conn, "ROLLBACK")
+}
+
+export connect, execute, query, close
+export begin_transaction, commit, rollback

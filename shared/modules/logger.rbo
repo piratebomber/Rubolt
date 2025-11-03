@@ -1,0 +1,31 @@
+# Shared Logger Module
+# Centralized logging for Rubolt projects
+
+import time
+
+let LOG_LEVEL: str = "INFO"
+
+func log(level: str, message: str) {
+    let timestamp: str = time.now()
+    print("[" + timestamp + "] [" + level + "] " + message)
+}
+
+func info(message: str) {
+    log("INFO", message)
+}
+
+func warn(message: str) {
+    log("WARN", message)
+}
+
+func error(message: str) {
+    log("ERROR", message)
+}
+
+func debug(message: str) {
+    if LOG_LEVEL == "DEBUG" {
+        log("DEBUG", message)
+    }
+}
+
+export log, info, warn, error, debug

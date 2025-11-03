@@ -1,0 +1,38 @@
+# Shared Common Module
+# Provides commonly used utilities across all Rubolt projects
+
+func clamp(value: int, min_val: int, max_val: int) -> int {
+    if value < min_val {
+        return min_val
+    }
+    if value > max_val {
+        return max_val
+    }
+    return value
+}
+
+func is_empty(s: str) -> bool {
+    return len(s) == 0
+}
+
+func join_path(parts: list) -> str {
+    # Simple path join utility
+    let result: str = ""
+    for part in parts {
+        if len(result) > 0 {
+            result = result + "/" + part
+        } else {
+            result = part
+        }
+    }
+    return result
+}
+
+func safe_divide(a: float, b: float, default: float) -> float {
+    if b == 0.0 {
+        return default
+    }
+    return a / b
+}
+
+export clamp, is_empty, join_path, safe_divide
