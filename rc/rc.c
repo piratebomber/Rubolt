@@ -1,6 +1,7 @@
 #include "rc.h"
 #include "../gc/type_info.h"
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -16,6 +17,7 @@ RefCounter *rubolt_rc = NULL;
 void rc_init(RefCounter *rc) {
     rc->cycle_buffer = NULL;
     rc->cycle_buffer_size = 0;
+    rc->object_registry = NULL;
     rc->total_objects = 0;
     rc->total_refs = 0;
     rc->cycles_detected = 0;
@@ -23,9 +25,37 @@ void rc_init(RefCounter *rc) {
     rc->cycle_detection_enabled = true;
 }
 
+/* Add object to registry */
+static void rc_register_object(RefCounter *rc, RCObject *obj) {
+    obj->registry_next = rc->object_registry;
+    rc->object_registry = obj;
+}
+
+/* Remove object from registry */
+static void rc_unregister_object(RefCounter *rc, RCObject *obj) {
+    RCObject *prev = NULL;
+    RCObject *curr = rc->object_registry;
+    
+    while (curr) {
+        if (curr == obj) {
+            if (prev) {
+                prev->registry_next = curr->registry_next;
+            } else {
+                rc->object_registry = curr->registry_next;
+            }
+            break;
+        }
+        prev = curr;
+        curr = curr->registry_next;
+    }
+}
+
 /* Free an object and its data */
-static void rc_free_object(RCObject *obj) {
+static void rc_free_object(RefCounter *rc, RCObject *obj) {
     if (!obj) return;
+    
+    /* Mark as freed */
+    obj->magic = RC_FREED_MAGIC;
     
     /* Call destructor if present */
     if (obj->destructor && obj->data) {
@@ -37,20 +67,39 @@ static void rc_free_object(RCObject *obj) {
         free(obj->data);
     }
     
+    /* Unregister from object registry */
+    rc_unregister_object(rc, obj);
+    
     /* Free the object itself */
     free(obj);
 }
 
 /* Shutdown reference counter */
 void rc_shutdown(RefCounter *rc) {
-    /* Free all objects in cycle buffer */
-    RCObject *obj = rc->cycle_buffer;
+    /* Free all objects in registry */
+    RCObject *obj = rc->object_registry;
     while (obj) {
-        RCObject *next = obj->next;
-        rc_free_object(obj);
+        RCObject *next = obj->registry_next;
+        
+        /* Mark as freed */
+        obj->magic = RC_FREED_MAGIC;
+        
+        /* Call destructor if present */
+        if (obj->destructor && obj->data) {
+            obj->destructor(obj->data);
+        }
+        
+        /* Free the data */
+        if (obj->data) {
+            free(obj->data);
+        }
+        
+        /* Free the object itself */
+        free(obj);
         obj = next;
     }
     
+    rc->object_registry = NULL;
     rc->cycle_buffer = NULL;
     rc->cycle_buffer_size = 0;
     rc->total_objects = 0;
@@ -61,6 +110,9 @@ void rc_shutdown(RefCounter *rc) {
 RCObject *rc_new(RefCounter *rc, void *data, size_t size, void (*destructor)(void *)) {
     RCObject *obj = (RCObject *)malloc(sizeof(RCObject));
     if (!obj) return NULL;
+    
+    /* Set magic number for validation */
+    obj->magic = RC_MAGIC_NUMBER;
     
     /* Allocate and copy data if provided */
     if (data && size > 0) {
@@ -83,7 +135,11 @@ RCObject *rc_new(RefCounter *rc, void *data, size_t size, void (*destructor)(voi
     obj->in_cycle_buffer = false;
     obj->color = COLOR_WHITE;
     obj->next = NULL;
+    obj->registry_next = NULL;
     obj->destructor = destructor;
+    
+    /* Register object in global registry */
+    rc_register_object(rc, obj);
     
     rc->total_objects++;
     rc->total_refs++;
@@ -143,7 +199,7 @@ void rc_release(RefCounter *rc, RCObject *obj) {
         
         /* Free the object */
         rc->total_objects--;
-        rc_free_object(obj);
+        rc_free_object(rc, obj);
     }
 }
 
@@ -203,6 +259,37 @@ void rc_mark_for_cycle_detection(RefCounter *rc, RCObject *obj) {
     rc->cycle_buffer_size++;
 }
 
+/* Validate if a pointer points to a valid RCObject */
+bool rc_is_valid_object(RefCounter *rc, void *ptr) {
+    if (!ptr) return false;
+    
+    /* Check if pointer is aligned (objects should be aligned) */
+    if ((uintptr_t)ptr % sizeof(void *) != 0) {
+        return false;
+    }
+    
+    /* Try to read magic number - this is unsafe but we wrap it */
+    RCObject *obj = (RCObject *)ptr;
+    
+    /* First quick check: magic number */
+    if (obj->magic != RC_MAGIC_NUMBER) {
+        return false;
+    }
+    
+    /* Second check: search in object registry */
+    RCObject *curr = rc->object_registry;
+    while (curr) {
+        if (curr == obj) {
+            /* Found in registry - it's valid */
+            return true;
+        }
+        curr = curr->registry_next;
+    }
+    
+    /* Not found in registry - invalid */
+    return false;
+}
+
 /* Context for RC graph traversal */
 typedef struct RCTraverseContext {
     RefCounter *rc;
@@ -213,9 +300,12 @@ typedef struct RCTraverseContext {
 static void count_internal_refs_visitor(void *object, void *pointer_field, void *context) {
     RCTraverseContext *ctx = (RCTraverseContext *)context;
     
-    /* Check if pointer_field points to an RCObject */
-    /* In practice, you'd need a way to verify this */
-    /* For now, assume all pointers in managed objects point to managed objects */
+    /* Verify that pointer_field actually points to a valid RCObject */
+    if (!rc_is_valid_object(ctx->rc, pointer_field)) {
+        /* Not a valid RCObject - skip it */
+        return;
+    }
+    
     RCObject *referenced = (RCObject *)pointer_field;
     if (referenced && referenced != ctx->current_obj) {
         referenced->internal_ref_count++;
@@ -250,7 +340,7 @@ static void calculate_internal_refs(RefCounter *rc) {
 }
 
 /* Depth-first search to mark reachable objects */
-static void dfs_mark(RCObject *obj) {
+static void dfs_mark(RefCounter *rc, RCObject *obj) {
     if (!obj || obj->color != COLOR_WHITE) return;
     
     obj->color = COLOR_GRAY;
@@ -262,9 +352,11 @@ static void dfs_mark(RCObject *obj) {
             void *field_addr = (char *)obj->data + field->offset;
             
             if (field->type == FIELD_POINTER) {
-                RCObject *referenced = *(RCObject **)field_addr;
-                if (referenced) {
-                    dfs_mark(referenced);
+                void *ptr = *(void **)field_addr;
+                /* Validate pointer before following */
+                if (ptr && rc_is_valid_object(rc, ptr)) {
+                    RCObject *referenced = (RCObject *)ptr;
+                    dfs_mark(rc, referenced);
                 }
             }
         }
@@ -282,7 +374,7 @@ static void rc_mark_phase(RefCounter *rc) {
         size_t external_refs = obj->ref_count - obj->internal_ref_count;
         if (external_refs > 0) {
             /* Mark this object and all reachable from it */
-            dfs_mark(obj);
+            dfs_mark(rc, obj);
         }
         obj = obj->next;
     }
@@ -353,7 +445,7 @@ size_t rc_collect_cycles(RefCounter *rc) {
         /* Force free the object */
         rc->total_objects--;
         rc->total_refs -= obj->ref_count;
-        rc_free_object(obj);
+        rc_free_object(rc, obj);
         collected++;
     }
     

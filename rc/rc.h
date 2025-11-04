@@ -5,8 +5,13 @@
 #include <stdbool.h>
 #include "../gc/type_info.h"
 
+/* Magic number to identify valid RCObjects */
+#define RC_MAGIC_NUMBER 0x52434F424A454354ULL  /* "RCOBJECT" in hex */
+#define RC_FREED_MAGIC  0xDEADBEEFDEADBEEFULL  /* Marker for freed objects */
+
 /* Reference counting object header */
 typedef struct RCObject {
+    unsigned long long magic;   /* Magic number for validation (must be first) */
     size_t ref_count;           /* Number of references */
     size_t weak_ref_count;      /* Number of weak references */
     size_t internal_ref_count;  /* References from other managed objects */
@@ -16,6 +21,7 @@ typedef struct RCObject {
     bool in_cycle_buffer;       /* Is in cycle detection buffer */
     unsigned int color;         /* Tri-color marking: 0=white, 1=gray, 2=black */
     struct RCObject *next;      /* Link for cycle detection */
+    struct RCObject *registry_next; /* Link in global object registry */
     void (*destructor)(void *); /* Destructor function */
     void *data;                 /* Actual object data */
 } RCObject;
@@ -30,6 +36,7 @@ typedef struct RCWeakRef {
 typedef struct RefCounter {
     RCObject *cycle_buffer;     /* Objects potentially in cycles */
     size_t cycle_buffer_size;   /* Size of cycle buffer */
+    RCObject *object_registry;  /* All live objects for validation */
     size_t total_objects;       /* Total tracked objects */
     size_t total_refs;          /* Total reference count */
     size_t cycles_detected;     /* Number of cycles found */
@@ -75,6 +82,9 @@ void rc_mark_for_cycle_detection(RefCounter *rc, RCObject *obj);
 
 /* Enable/disable cycle detection */
 void rc_set_cycle_detection(RefCounter *rc, bool enabled);
+
+/* Validate if a pointer points to a valid RCObject */
+bool rc_is_valid_object(RefCounter *rc, void *ptr);
 
 /* Get statistics */
 typedef struct RCStats {
