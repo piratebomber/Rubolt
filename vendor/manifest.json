@@ -1,0 +1,14 @@
+{
+  "vendors": [
+    { "name": "script_ops", "type": "local" }
+  ],
+  "python": [
+    { "name": "requests" },
+    { "name": "cffi", "version": ">=1.16" }
+  ],
+  "includes": [
+    "sqlite3.h",
+    "curl/curl.h",
+    "zlib.h"
+  ]
+}

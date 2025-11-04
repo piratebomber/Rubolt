@@ -51,8 +51,8 @@ switch($Mode){
     foreach($d in 'StdLib','Objects','Modules'){
       if(Test-Path $d){ Copy-Tree $d (Join-Path $lib $d) }
     }
-    # Share: docs and examples
-    foreach($d in 'Docs','examples','vscode-rubolt'){
+    # Share: docs, examples, python tools, vendor deps
+    foreach($d in 'Docs','examples','vscode-rubolt','python','vendor'){
       if(Test-Path $d){ Copy-Tree $d (Join-Path $share $d) }
     }
   }

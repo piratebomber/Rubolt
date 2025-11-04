@@ -28,7 +28,7 @@ foreach($d in 'StdLib','Objects','Modules'){
 }
 
 # Share content
-foreach($d in 'Docs','examples','vscode-rubolt'){
+foreach($d in 'Docs','examples','vscode-rubolt','python','vendor'){
   if(Test-Path $d){ Copy-Item $d "$OutDir/share/" -Recurse -Force }
 }
 

@@ -1,0 +1,50 @@
+{
+  "library": "rubolt_core.so",
+  "functions": [
+    {
+      "name": "rb_init",
+      "return_type": "int",
+      "params": []
+    },
+    {
+      "name": "rb_cleanup",
+      "return_type": "void",
+      "params": []
+    },
+    {
+      "name": "rb_eval",
+      "return_type": "int",
+      "params": [
+        {
+          "name": "code",
+          "type": "char*"
+        }
+      ]
+    },
+    {
+      "name": "rb_exec_file",
+      "return_type": "int",
+      "params": [
+        {
+          "name": "filename",
+          "type": "char*"
+        }
+      ]
+    },
+    {
+      "name": "rb_get_version",
+      "return_type": "char*",
+      "params": []
+    },
+    {
+      "name": "rb_set_debug",
+      "return_type": "void",
+      "params": [
+        {
+          "name": "enabled",
+          "type": "int"
+        }
+      ]
+    }
+  ]
+}

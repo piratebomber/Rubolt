@@ -41,7 +41,7 @@ case "$MODE" in
     [[ -f rbcli ]] && install -m 0755 rbcli "$bin/rbcli" || true
     [[ -f cli/rbcli ]] && install -m 0755 cli/rbcli "$bin/rbcli" || true
     for d in StdLib Objects Modules; do [[ -d "$d" ]] && cp -a "$d" "$lib/"; done
-    for d in Docs examples vscode-rubolt; do [[ -d "$d" ]] && cp -a "$d" "$share/"; done
+    for d in Docs examples vscode-rubolt python vendor; do [[ -d "$d" ]] && cp -a "$d" "$share/"; done
     ;;
   source)
     rsync -a --exclude '.git' . "$PREFIX/Rubolt/"

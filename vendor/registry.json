@@ -1,0 +1,46 @@
+{
+  "packages": {
+    "sqlite": {
+      "headers": ["sqlite3.h"],
+      "pkgman": {
+        "windows": ["choco install sqlite"],
+        "linux": ["sudo apt-get update", "sudo apt-get install -y libsqlite3-dev || sudo dnf install -y sqlite-devel || sudo pacman -S --noconfirm sqlite"],
+        "macos": ["brew install sqlite"]
+      },
+      "assets": {
+        "windows": { "url": "https://www.sqlite.org/2024/sqlite-dll-win64-x64-3450000.zip", "include_dir": "include", "lib_dir": "lib" },
+        "linux": { "url": "https://www.sqlite.org/2024/sqlite-autoconf-3450000.tar.gz" },
+        "macos": { "url": "https://www.sqlite.org/2024/sqlite-autoconf-3450000.tar.gz" }
+      }
+    },
+    "curl": {
+      "headers": ["curl/curl.h"],
+      "pkgman": {
+        "windows": ["choco install curl"],
+        "linux": ["sudo apt-get update", "sudo apt-get install -y libcurl4-openssl-dev || sudo dnf install -y libcurl-devel || sudo pacman -S --noconfirm curl"],
+        "macos": ["brew install curl"]
+      },
+      "assets": {
+        "linux": { "url": "https://curl.se/download/curl-8.7.1.tar.gz" },
+        "macos": { "url": "https://curl.se/download/curl-8.7.1.tar.gz" }
+      }
+    },
+    "zlib": {
+      "headers": ["zlib.h"],
+      "pkgman": {
+        "windows": ["choco install zlib"],
+        "linux": ["sudo apt-get update", "sudo apt-get install -y zlib1g-dev || sudo dnf install -y zlib-devel || sudo pacman -S --noconfirm zlib"],
+        "macos": ["brew install zlib"]
+      },
+      "assets": {
+        "linux": { "url": "https://zlib.net/zlib-1.3.1.tar.gz" },
+        "macos": { "url": "https://zlib.net/zlib-1.3.1.tar.gz" }
+      }
+    }
+  },
+  "header_map": {
+    "sqlite3.h": "sqlite",
+    "curl/curl.h": "curl",
+    "zlib.h": "zlib"
+  }
+}

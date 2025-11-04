@@ -27,7 +27,7 @@ fi
 for d in StdLib Objects Modules; do [[ -d "$d" ]] && cp -a "$d" "$OUT_DIR/lib/"; done
 
 # Share content
-for d in Docs examples vscode-rubolt; do [[ -d "$d" ]] && cp -a "$d" "$OUT_DIR/share/"; done
+for d in Docs examples vscode-rubolt python vendor; do [[ -d "$d" ]] && cp -a "$d" "$OUT_DIR/share/"; done
 
 for f in LICENSE README.md; do [[ -f "$f" ]] && cp -a "$f" "$OUT_DIR/share/"; done
 
