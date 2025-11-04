@@ -3,7 +3,7 @@
   "displayName": "Rubolt Language Support",
   "description": "Syntax highlighting and language support for Rubolt (.rbo) files",
   "version": "1.0.0",
-  "publisher": "rubolt-team",
+  "publisher": "piratebomber",
   "engines": {
     "vscode": "^1.60.0"
   },
@@ -40,6 +40,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rubolt/vscode-rubolt"
+    "url": "https://github.com/piratebomber/Rubolt/vscode-rubolt"
   }
 }
