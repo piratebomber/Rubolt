@@ -1,204 +1,154 @@
 # Rubolt Programming Language
 
-Rubolt is a modern programming language that combines the best features of Python, C, and TypeScript.
+Rubolt is a modern language and toolchain blending Python, C, and TypeScript. It features a fast C runtime, static typing, rich standard library, JIT scaffolding, REPL/debugging/profiling, async + threading, DLL interop, and deep Python/C bridging.
 
-## Features
+## Highlights
 
-- **Hybrid Syntax**: Combines Python's readability, C's performance, and TypeScript's type system
-- **C Interpreter**: Fast interpreter written in C
-- **Python Bindings**: Use Rubolt from Python
-- **VSCode Extension**: Full syntax highlighting and IntelliSense support
-
-## File Extensions
-
-- `.rbo` - Rubolt source files
-- `.rbo.config` - Rubolt project configuration
+- Hybrid syntax with static type checking and helpful errors
+- Fast C interpreter/runtime with GC + RC and type-aware object graph traversal
+- Collections (Lists, Dicts, Sets, Tuples) with Pythonic utilities
+- REPL with debugger (breakpoints/step/inspect) and profiler
+- JIT + inline caching scaffolding, hot path stats
+- Async/await, event loop, threading with GIL-like lock
+- DLL import: `import mylib.dll` (precompiled or compiled-on-demand)
+- Python interop (gcc→py, py→C bridge, FFI, wrapper generator)
+- Vendor system, compile-time macros, SDK, and VS Code support
+- Devcontainer + Docker, CI/CD workflows, and installer scripts
 
 ## Quick Start
 
-### Building the Interpreter
+- Native build (Windows):
+  ```bash
+  build_all.bat
+  ```
+- Native build (macOS/Linux):
+  ```bash
+  chmod +x build_all.sh
+  ./build_all.sh
+  ```
+- Docker:
+  ```bash
+  docker build -t rubolt .
+  docker run --rm -it -v $PWD:/work rubolt rbcli run examples/hello.rbo
+  ```
+- Devcontainer: open the repo in VS Code and “Reopen in Container”.
 
+Run a file:
 ```bash
-cd src
-make
+rbcli run examples/hello.rbo
 ```
-
-### Running Rubolt Code
-
+Enter the REPL:
 ```bash
-./rubolt examples/hello.rbo
+rbcli repl
 ```
 
-### Using from Python
+## Using DLLs
 
-```python
-import rubolt
-rubolt.run_file("script.rbo")
-```
-
-## Syntax Overview
-
+Place DLLs/shared libs in `src/precompiled/` or let Rubolt compile on import:
 ```rubolt
-// TypeScript-style variable declarations with types
-let name: string = "Rubolt";
-const version: number = 1.0;
+import mymath.dll
+print(mymath.add(2, 40))
+```
+If missing, Rubolt will attempt to build from source (vendor/cases) and cache it in `src/precompiled/`.
 
-// Python-style functions with type hints
-def greet(name: string) -> string:
-    return f"Hello, {name}!";
+## Python Interop (gimmicks)
 
-// C-style control flow
-if (version >= 1.0) {
-    printf("Production ready!\n");
-}
+- gcc→py compiler, py→C bridge, FFI helper, wrapper generator, type converter, op dispatcher.
+- Parse C headers/JSON to generate robust Python/C bindings.
+- Example:
+  ```bash
+  python python/gimmicks/c_wrapper_gen.py vendor/lib/mylib.so -o mylib_wrapper.py
+  ```
 
-// Hybrid loop syntax
-for (let i = 0; i < 10; i++) {
-    print(i);
-}
+## Collections
+
+- Lists: append, insert, pop, remove, slice, copy, sort, reverse
+- Dicts: hash table with string/int keys, iteration helpers
+- Sets: hash-based unique containers
+- Tuples: fixed-size arrays, hashable
+
+## Concurrency and Async
+
+- Async/await with a simple event loop (timers + I/O hooks)
+- Threading API with a GIL-like lock and thread pool utilities
+
+## Memory Management
+
+- GC: pool-optimized mark-sweep with type-driven graph traversal
+- RC: strong/weak refs, deterministic release + cycle detection
+- Type info system describes layouts and pointer fields for accurate traversal
+
+## REPL, Debugger, Profiler
+
+- REPL with history and completion
+- Debugger: breakpoints, step, call stack, inspect
+- Profiler: timings, hotspots, reports
+
+## JIT + Inline Cache (scaffolding)
+
+- Executable memory allocation, placeholders for hot-path codegen
+- Inline caches for method/attribute lookups with stats
+
+## CLI Overview
+
+```bash
+rbcli init <name>         # New project
+rbcli run <file>          # Run file
+rbcli repl                # Interactive shell
+rbcli build               # Build project
+rbcli newlib <name>       # Library template (native optional)
+rbcli test                # Run tests
+rbcli sim <file>          # Run in Bopes simulator
+rbcli compile <file>      # Emit/read .rbo binary
+rbcli version             # Version info
 ```
 
-## Configuration
-
-Create a `.rbo.config` file in your project root:
+## Configuration (.rbo.config)
 
 ```json
 {
-    "version": "1.0",
-    "entry": "main.rbo",
-    "strict": true,
-    "output": "build/"
+  "version": "1.0",
+  "entry": "src/main.rbo",
+  "strict": true,
+  "typecheck": true,
+  "optimize": false,
+  "output": "build/"
 }
 ```
 
-## VSCode Extension
+## Development Environment
 
-Install the extension from `vscode-rubolt/` to get syntax highlighting for `.rbo` files.
+- .devcontainer for VS Code Remote Containers
+- Dockerfile for reproducible builds
+- VS Code: `.vscode/settings.json`, `tasks.json`, `launch.json`, `extensions.json`
+- GitHub Actions: build, lint, tests, fuzz (placeholder), docs, security scan, stale issues
 
-## Advanced Features
+## Vendor and Compiletime
 
-### Type Checking & Error Handling
+- `vendor/` installers for headers/libs per-OS, project analyzer, registry/manifest
+- `compiletime/macros/` preprocessor macros (debugging, token aliasing, type helpers)
 
-Rubolt includes comprehensive type checking with detailed error messages:
+## SDK and Shared
 
-```rubolt
-let x: string = 123;  // Type error with helpful hints!
+- `shared/sdk/` with native extension API, bindings, utilities, templates, examples
+- `shared/modules/`, `shared/globals/` for cross-project reuse
+
+## Project Layout (abridged)
+
 ```
-
-### Standard Library
-
-Built-in modules for common tasks:
-
-```rubolt
-import math
-import os
-import file
-import time
-
-let result: number = math.sqrt(16);
-let dir: string = os.getcwd();
-```
-
-Available modules:
-- **math** - Mathematical operations (sqrt, pow, sin, cos, etc.)
-- **os** - Operating system interface (getcwd, getenv, system)
-- **file** - File operations (read, write, exists)
-- **time** - Time utilities (now, sleep)
-- **sys** - System utilities (exit, version)
-
-### CLI Tool
-
-Powerful command-line tool for project management:
-
-```bash
-# Create new project
-rbcli init my-project
-
-# Run code
-rbcli run main.rbo
-
-# Create library with interactive template
-rbcli newlib mylib
-
-# Build project
-rbcli build
-```
-
-### Library Development
-
-Create custom libraries easily:
-
-```bash
-rbcli newlib mylib
-```
-
-Generates:
-- `.rbo` library file with template
-- Optional Python/C native bridge
-- README documentation
-- Example usage file
-
-## Building
-
-### Build Everything
-
-**Windows:**
-```bash
-build_all.bat
-```
-
-This builds:
-1. Rubolt interpreter with type checking
-2. Module system + standard library
-3. CLI tool (rbcli)
-
-**Linux/Mac:**
-```bash
-chmod +x build_all.sh
-./build_all.sh
-```
-
-### Build Individual Components
-
-**Interpreter only:**
-```bash
-cd src
-make
-```
-
-**CLI tool only:**
-```bash
-cd cli
-make
+src/          # Runtime, parser, interpreter, modules
+python/       # Python bindings and gimmicks
+vendor/       # Vendor manager (installers, registry, assets)
+shared/       # SDK, examples, shared modules/globals
+vscode-rubolt/# VS Code extension
+.gc/, rc/, type_info/ # Memory systems and type metadata
 ```
 
 ## Documentation
 
-- **README.md** - This file (overview)
-- **ADVANCED.md** - Complete guide to advanced features
-- **examples/** - Example programs
-
-## Project Structure
-
-```
-Rubolt/
-├── src/               # Interpreter source
-│   ├── lexer.c/h     # Lexical analysis
-│   ├── parser.c/h    # Syntax parsing
-│   ├── ast.c/h       # Abstract syntax tree
-│   ├── interpreter.c/h  # Interpreter
-│   ├── typechecker.c/h  # Type checking
-│   ├── module.c/h    # Module system
-│   └── main.c        # Entry point
-├── cli/              # CLI tool
-│   ├── rbcli.c       # CLI implementation
-│   └── Makefile
-├── python/           # Python bindings
-├── vscode-rubolt/    # VSCode extension
-├── examples/         # Example programs
-├── lib/              # User libraries
-└── stdlib/           # Standard library
-```
+- README.md (this)
+- ADVANCED.md, QUICKREF.md, PROJECT_SUMMARY.md
+- Subsystem READMEs under `gc/`, `rc/`, `compiletime/`, `vendor/`, `python/gimmicks/`, `shared/sdk/`
 
 ## License
 
