@@ -246,6 +246,13 @@ Stmt* stmt_print(Expr* expr) {
     return stmt;
 }
 
+Stmt* stmt_import(const char* spec) {
+    Stmt* stmt = malloc(sizeof(Stmt));
+    stmt->type = STMT_IMPORT;
+    stmt->as.import_stmt.spec = strdup(spec);
+    return stmt;
+}
+
 void stmt_free(Stmt* stmt) {
     if (!stmt) return;
     
@@ -310,6 +317,9 @@ void stmt_free(Stmt* stmt) {
             break;
         case STMT_PRINT:
             expr_free(stmt->as.print_stmt.expression);
+            break;
+        case STMT_IMPORT:
+            free(stmt->as.import_stmt.spec);
             break;
     }
     free(stmt);

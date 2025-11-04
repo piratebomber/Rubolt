@@ -4,7 +4,7 @@ LDFLAGS = -lm
 
 TARGET = rubolt
 MODULE_SOURCES = ../Modules/string_mod.c ../Modules/random_mod.c ../Modules/atomics_mod.c
-SOURCES = main.c lexer.c parser.c ast.c interpreter.c typechecker.c module.c modules_registry.c bc_compiler.c vm.c ../runtime/runtime.c frozen.c ../bopes/bopes.c ../runtime/manager.c $(MODULE_SOURCES)
+SOURCES = main.c lexer.c parser.c ast.c interpreter.c typechecker.c module.c modules_registry.c bc_compiler.c vm.c dll_loader.c dll_import.c native_registry.c ../runtime/runtime.c frozen.c ../bopes/bopes.c ../runtime/manager.c $(MODULE_SOURCES)
 OBJECTS = $(SOURCES:.c=.o)
 
 .PHONY: all clean

@@ -57,6 +57,7 @@ static Expr* parse_primary(Parser* parser);
 static Expr* parse_expression(Parser* parser);
 static Stmt* parse_statement(Parser* parser);
 static Stmt* parse_declaration(Parser* parser);
+static Stmt* parse_import_stmt(Parser* parser);
 
 static Expr* parse_primary(Parser* parser) {
     if (match(parser, TOKEN_TRUE)) {
@@ -417,6 +418,9 @@ static Stmt* parse_statement(Parser* parser) {
     if (check(parser, TOKEN_FOR)) {
         return parse_for_stmt(parser);
     }
+    if (check(parser, TOKEN_IMPORT)) {
+        return parse_import_stmt(parser);
+    }
     
     Expr* expr = parse_expression(parser);
     skip_newlines(parser);
@@ -524,8 +528,52 @@ static Stmt* parse_declaration(Parser* parser) {
     if (check(parser, TOKEN_DEF) || check(parser, TOKEN_FUNCTION)) {
         return parse_function_declaration(parser);
     }
+    if (check(parser, TOKEN_IMPORT)) {
+        return parse_import_stmt(parser);
+    }
     
     return parse_statement(parser);
+}
+
+static Stmt* parse_import_stmt(Parser* parser) {
+    advance(parser); // consume 'import'
+    // import <string>|<identifier>[.<identifier>]*
+    char buffer[512];
+    buffer[0] = '\0';
+    
+    if (check(parser, TOKEN_STRING)) {
+        // Use raw token as spec (include quotes content)
+        advance(parser);
+        size_t len = parser->previous.length;
+        // Strip quotes
+        if (len >= 2) {
+            snprintf(buffer, sizeof(buffer), "%.*s", (int)(len), parser->previous.start);
+            // remove surrounding quotes
+            if (buffer[0] == '"' || buffer[0] == '\'') {
+                memmove(buffer, buffer + 1, strlen(buffer));
+                char* end = buffer + strlen(buffer) - 1;
+                if (*end == '"' || *end == '\'') *end = '\0';
+            }
+        }
+    } else if (check(parser, TOKEN_IDENTIFIER)) {
+        // Collect identifier[.identifier]* as spec
+        char part[256];
+        part[0] = '\0';
+        do {
+            advance(parser);
+            snprintf(part, sizeof(part), "%.*s", (int)parser->previous.length, parser->previous.start);
+            if (buffer[0] != '\0') strncat(buffer, ".", sizeof(buffer)-strlen(buffer)-1);
+            strncat(buffer, part, sizeof(buffer)-strlen(buffer)-1);
+            if (!check(parser, TOKEN_DOT)) break;
+            advance(parser);
+        } while (check(parser, TOKEN_IDENTIFIER));
+    } else {
+        error_at(parser, &parser->current, "Expect module or path after 'import'.");
+        return stmt_expression(expr_null());
+    }
+    
+    skip_newlines(parser);
+    return stmt_import(buffer);
 }
 
 void parser_init(Parser* parser, Lexer* lexer) {

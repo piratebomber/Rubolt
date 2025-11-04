@@ -1,4 +1,6 @@
 #include "interpreter.h"
+#include "native_registry.h"
+#include "dll_import.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -204,6 +206,20 @@ Value eval_expr(Environment* env, Expr* expr) {
             
             Function* fn = env_get_function(env, name);
             if (!fn) {
+                // Try native registry
+                RbNativeFn nfn = native_find(name);
+                if (nfn) {
+                    // Evaluate args
+                    size_t argc = expr->as.call.arg_count;
+                    Value* argv = (Value*)malloc(sizeof(Value) * (argc));
+                    for (size_t i = 0; i < argc; i++) {
+                        argv[i] = eval_expr(env, expr->as.call.args[i]);
+                    }
+                    Value result = nfn(env, argv, argc);
+                    for (size_t i = 0; i < argc; i++) value_free(&argv[i]);
+                    free(argv);
+                    return result;
+                }
                 fprintf(stderr, "Undefined function '%s'\n", name);
                 return value_null();
             }
@@ -337,6 +353,18 @@ void exec_stmt(Environment* env, Stmt* stmt) {
             Value value = eval_expr(env, stmt->as.print_stmt.expression);
             value_print(value);
             printf("\n");
+            break;
+        }
+        case STMT_IMPORT: {
+            const char* spec = stmt->as.import_stmt.spec;
+            if (rb_is_c_source_import(spec)) {
+                rb_import_c_source(spec);
+            } else if (rb_is_dll_import(spec)) {
+                rb_import_dll(spec);
+            } else {
+                // Treat as DLL name without extension
+                rb_import_dll(spec);
+            }
             break;
         }
     }

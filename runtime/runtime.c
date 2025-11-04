@@ -2,6 +2,7 @@
 #include "lexer.h"
 #include "parser.h"
 #include "interpreter.h"
+#include "../src/native_registry.h"
 #include "../src/frozen.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,6 +58,7 @@ static char* load_prelude(void) {
 }
 
 int runtime_run_source(const char* source) {
+    native_registry_init();
     char* prelude = load_prelude();
     char* merged = join_sources(prelude, source);
 

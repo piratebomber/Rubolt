@@ -79,7 +79,8 @@ typedef enum {
     STMT_WHILE,
     STMT_FOR,
     STMT_BLOCK,
-    STMT_PRINT
+    STMT_PRINT,
+    STMT_IMPORT
 } StmtType;
 
 typedef struct Stmt Stmt;
@@ -136,6 +137,10 @@ typedef struct {
     Expr* expression;
 } PrintStmt;
 
+typedef struct {
+    char* spec; // import target string (e.g., "mylib.dll" or identifier)
+} ImportStmt;
+
 struct Stmt {
     StmtType type;
     union {
@@ -148,6 +153,7 @@ struct Stmt {
         ForStmt for_stmt;
         BlockStmt block;
         PrintStmt print_stmt;
+        ImportStmt import_stmt;
     } as;
 };
 
@@ -182,6 +188,7 @@ Stmt* stmt_while(Expr* condition, Stmt** body, size_t body_count);
 Stmt* stmt_for(Stmt* init, Expr* condition, Expr* increment, Stmt** body, size_t body_count);
 Stmt* stmt_block(Stmt** statements, size_t count);
 Stmt* stmt_print(Expr* expr);
+Stmt* stmt_import(const char* spec);
 void stmt_free(Stmt* stmt);
 
 #endif

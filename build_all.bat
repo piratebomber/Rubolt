@@ -15,6 +15,9 @@ gcc -Wall -Wextra -std=c11 -O2 -c interpreter.c -o interpreter.o
 gcc -Wall -Wextra -std=c11 -O2 -c typechecker.c -o typechecker.o
 gcc -Wall -Wextra -std=c11 -O2 -c module.c -o module.o
 gcc -Wall -Wextra -std=c11 -O2 -c modules_registry.c -o modules_registry.o
+gcc -Wall -Wextra -std=c11 -O2 -c dll_loader.c -o dll_loader.o
+gcc -Wall -Wextra -std=c11 -O2 -c dll_import.c -o dll_import.o
+gcc -Wall -Wextra -std=c11 -O2 -c native_registry.c -o native_registry.o
 gcc -Wall -Wextra -std=c11 -O2 -c bc_compiler.c -o bc_compiler.o
 gcc -Wall -Wextra -std=c11 -O2 -c vm.c -o vm.o
 gcc -Wall -Wextra -std=c11 -O2 -c ..\bopes\bopes.c -o bopes.o -I..
@@ -25,7 +28,7 @@ gcc -Wall -Wextra -std=c11 -O2 -c ..\Modules\string_mod.c -o string_mod.o
 gcc -Wall -Wextra -std=c11 -O2 -c ..\Modules\random_mod.c -o random_mod.o
 gcc -Wall -Wextra -std=c11 -O2 -c ..\Modules\atomics_mod.c -o atomics_mod.o
 
-gcc main.o lexer.o parser.o ast.o interpreter.o typechecker.o module.o modules_registry.o bc_compiler.o vm.o manager.o bopes.o ^
+gcc main.o lexer.o parser.o ast.o interpreter.o typechecker.o module.o modules_registry.o bc_compiler.o vm.o dll_loader.o dll_import.o native_registry.o manager.o bopes.o ^
     string_mod.o random_mod.o atomics_mod.o -o rubolt.exe
 
 if %ERRORLEVEL% NEQ 0 (
