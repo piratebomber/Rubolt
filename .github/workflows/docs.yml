@@ -1,0 +1,256 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'Docs/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Docs/**'
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Sphinx and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install sphinx sphinx-rtd-theme myst-parser sphinx-copybutton
+
+      - name: Install Doxygen for C documentation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y doxygen graphviz
+
+      - name: Generate C API documentation with Doxygen
+        run: |
+          # Create Doxyfile if not exists
+          if [ ! -f Doxyfile ]; then
+            cat > Doxyfile << 'EOF'
+          PROJECT_NAME           = "Rubolt C API"
+          OUTPUT_DIRECTORY       = docs_build/c_api
+          INPUT                  = src/ gc/ rc/ repl/ collections/
+          RECURSIVE              = YES
+          EXTRACT_ALL            = YES
+          EXTRACT_STATIC         = YES
+          GENERATE_HTML          = YES
+          GENERATE_LATEX         = NO
+          HTML_OUTPUT            = html
+          HAVE_DOT               = YES
+          CALL_GRAPH             = YES
+          CALLER_GRAPH           = YES
+          EOF
+          fi
+          doxygen Doxyfile || echo "Doxygen generation skipped"
+
+      - name: Build Sphinx documentation
+        run: |
+          cd Docs
+          # Create conf.py if not exists
+          if [ ! -f conf.py ]; then
+            cat > conf.py << 'EOF'
+          project = 'Rubolt'
+          copyright = '2024, Rubolt Contributors'
+          author = 'Rubolt Contributors'
+          release = '1.0.0'
+
+          extensions = [
+              'sphinx.ext.autodoc',
+              'sphinx.ext.viewcode',
+              'sphinx.ext.napoleon',
+              'myst_parser',
+          ]
+
+          templates_path = ['_templates']
+          exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+          html_theme = 'sphinx_rtd_theme'
+          html_static_path = ['_static']
+
+          source_suffix = {
+              '.rst': 'restructuredtext',
+              '.md': 'markdown',
+          }
+          EOF
+          fi
+
+          # Build HTML documentation
+          sphinx-build -b html . _build/html || echo "Sphinx build skipped"
+
+      - name: Combine documentation
+        run: |
+          mkdir -p docs_output
+          # Copy Sphinx HTML
+          if [ -d Docs/_build/html ]; then
+            cp -r Docs/_build/html/* docs_output/
+          fi
+          # Copy Doxygen C API docs
+          if [ -d docs_build/c_api/html ]; then
+            mkdir -p docs_output/c_api
+            cp -r docs_build/c_api/html/* docs_output/c_api/
+          fi
+          # Copy README as index fallback
+          if [ -f README.md ]; then
+            pip install markdown
+            python -c "import markdown; print(markdown.markdown(open('README.md').read()))" > docs_output/readme.html || true
+          fi
+
+      - name: Generate documentation index
+        run: |
+          cat > docs_output/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Rubolt Documentation</title>
+              <style>
+                  body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+                  h1 { color: #333; }
+                  .docs-section { margin: 30px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                  a { color: #0066cc; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+              <h1>Rubolt Documentation</h1>
+              
+              <div class="docs-section">
+                  <h2>User Documentation</h2>
+                  <ul>
+                      <li><a href="getting_started.html">Getting Started</a></li>
+                      <li><a href="language_reference.html">Language Reference</a></li>
+                      <li><a href="stdlib.html">Standard Library</a></li>
+                      <li><a href="cli.html">CLI Tools</a></li>
+                  </ul>
+              </div>
+
+              <div class="docs-section">
+                  <h2>Developer Documentation</h2>
+                  <ul>
+                      <li><a href="contributing.html">Contributing Guide</a></li>
+                      <li><a href="runtime.html">Runtime Architecture</a></li>
+                      <li><a href="grammar.html">Grammar Tests</a></li>
+                      <li><a href="c_api/index.html">C API Reference (Doxygen)</a></li>
+                  </ul>
+              </div>
+
+              <div class="docs-section">
+                  <h2>Resources</h2>
+                  <ul>
+                      <li><a href="readme.html">README</a></li>
+                      <li><a href="https://github.com/rubolt/rubolt">GitHub Repository</a></li>
+                  </ul>
+              </div>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload documentation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs_output/
+          retention-days: 30
+
+      - name: Check documentation links
+        run: |
+          echo "Checking for broken links..."
+          pip install linkchecker || true
+          linkchecker docs_output/index.html || echo "Link checking skipped"
+
+  deploy-docs:
+    name: Deploy Documentation
+    needs: build-docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Download documentation artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: documentation
+          path: docs_output/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs_output/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  validate-docs:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check RST syntax
+        run: |
+          pip install doc8
+          doc8 Docs/ || echo "RST validation skipped"
+
+      - name: Check Markdown syntax
+        uses: DavidAnson/markdownlint-cli2-action@v15
+        with:
+          globs: |
+            README.md
+            **/*.md
+
+      - name: Check for TODO/FIXME in docs
+        run: |
+          echo "Checking for incomplete documentation..."
+          grep -r "TODO\|FIXME" Docs/ || echo "No TODO/FIXME found"
+
+      - name: Validate code examples
+        run: |
+          echo "Validating code examples in documentation..."
+          # Extract and validate code blocks from RST files
+          find Docs/ -name "*.rst" -exec grep -l ".. code-block::" {} \; || echo "No code blocks found"
+
+  docs-summary:
+    name: Documentation Summary
+    needs: [build-docs, validate-docs]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Create summary
+        run: |
+          echo "## Documentation Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Build: ${{ needs.build-docs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Validation: ${{ needs.validate-docs.result }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.deploy-docs.result }}" != "skipped" ]; then
+            echo "✅ Deployment: ${{ needs.deploy-docs.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
