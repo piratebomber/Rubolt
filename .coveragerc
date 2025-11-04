@@ -1,0 +1,28 @@
+[run]
+# Which files to measure coverage for
+source = .
+branch = True
+omit =
+    Lib/tests/*
+    tools/run_test.py
+    python/setup.py
+
+[report]
+# Minimum coverage percentages
+fail_under = 80
+show_missing = True
+skip_covered = True
+
+# Exclude lines from coverage reporting
+exclude_lines =
+    # Ignore debugging
+    pragma: no cover
+    if __name__ == .__main__.:
+
+[html]
+# Generate an HTML report
+directory = coverage_html_report
+
+[xml]
+# Generate XML report (useful for CI)
+output = coverage.xml

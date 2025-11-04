@@ -1,0 +1,61 @@
+name: C CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+
+    # Run on multiple operating systems
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up C compiler
+      run: |
+        if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+          sudo apt update
+          sudo apt install -y build-essential cmake
+        elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+          brew update
+          brew install cmake gcc
+        fi
+      shell: bash
+
+    - name: Build project
+      run: |
+        mkdir -p build
+        cd build
+        cmake ..
+        cmake --build . --parallel
+      shell: bash
+
+    - name: Run tests (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        cd build
+        if [ -f "run_tests" ]; then
+          ./run_tests
+        else
+          echo "No tests to run"
+        fi
+      shell: bash
+
+    - name: Run tests (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cd build
+        if exist run_tests.exe (
+          run_tests.exe
+        ) else (
+          echo No tests to run
+        )
+      shell: cmd
