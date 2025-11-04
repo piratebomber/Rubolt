@@ -1,0 +1,17 @@
+name: Build
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  linux:
+    uses: ./.github/workflows/reusable-linux.yml
+
+  macos:
+    uses: ./.github/workflows/reusable-macos.yml
+
+  windows:
+    uses: ./.github/workflows/reusable-windows-msi.yml

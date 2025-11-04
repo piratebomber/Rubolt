@@ -1,0 +1,38 @@
+name: Reusable macOS Build
+
+on:
+  workflow_call:
+    inputs:
+      make-target:
+        required: false
+        type: string
+        default: all
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install make || true
+
+      - name: Build
+        run: |
+          make -C src -j ${{ inputs.make-target }}
+
+      - name: List outputs
+        run: |
+          ls -lah src || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rubolt-macos
+          path: |
+            src/rubolt
+            src/rubolt.exe
+          if-no-files-found: ignore

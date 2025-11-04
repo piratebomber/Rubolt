@@ -1,0 +1,56 @@
+name: Reusable Windows Build (MSYS2)
+
+on:
+  workflow_call:
+    inputs:
+      run-tests:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+          update: true
+
+      - name: Build with mingw32-make
+        shell: msys2 {0}
+        run: |
+          mingw32-make -C src -j
+
+      - name: Fallback build_all.bat (if needed)
+        if: ${{ always() }}
+        shell: cmd
+        run: |
+          if not exist src\rubolt.exe (
+            echo Fallback to build_all.bat
+            call build_all.bat
+          )
+
+      - name: Package (zip)
+        shell: pwsh
+        run: |
+          New-Item -Force -ItemType Directory build | Out-Null
+          if (Test-Path src\rubolt.exe) {
+            Compress-Archive -Path src\rubolt.exe -DestinationPath build\rubolt-win64.zip -Force
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rubolt-windows
+          path: |
+            build/rubolt-win64.zip
+            src/rubolt.exe
+          if-no-files-found: warn

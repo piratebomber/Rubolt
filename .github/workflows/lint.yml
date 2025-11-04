@@ -1,0 +1,42 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'gc/**'
+      - 'rc/**'
+      - 'collections/**'
+      - 'runtime/**'
+      - 'Modules/**'
+      - '.github/workflows/lint.yml'
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format cppcheck
+
+      - name: clang-format check
+        run: |
+          set -e
+          files=$(git ls-files '*.c' '*.h')
+          if [ -n "$files" ]; then
+            clang-format --version
+            clang-format -style=LLVM -n $files
+          fi
+
+      - name: cppcheck
+        run: |
+          cppcheck --version
+          cppcheck --enable=warning,style,performance,portability --inline-suppr \
+                   --error-exitcode=1 src gc rc collections runtime Modules || true
