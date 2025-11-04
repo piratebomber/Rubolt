@@ -1,0 +1,27 @@
+name: Docs Build
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/docs-build.yml'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build with MkDocs (if present)
+        run: |
+          if [ -f mkdocs.yml ]; then
+            pipx install mkdocs-material || pip install mkdocs mkdocs-material
+            mkdocs build --strict
+          elif [ -f Doxyfile ]; then
+            sudo apt-get update && sudo apt-get install -y doxygen graphviz
+            doxygen Doxyfile
+          else
+            echo "No docs config found; skipping"
+          fi

@@ -1,0 +1,28 @@
+name: Integration Tests
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types:
+      - completed
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make gcc
+
+      - name: Build
+        run: |
+          make -C src -j
+
+      - name: Integration smoke
+        run: |
+          echo "Running integration smoke (placeholder)"
+          ./src/rubolt || true

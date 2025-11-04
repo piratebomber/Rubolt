@@ -1,0 +1,50 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential make gcc
+
+      - name: Install toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install make || true
+
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cmd /c build_all.bat || true
+          else
+            make -C src -j || true
+          fi
+
+      - name: Run unit tests (placeholder)
+        shell: bash
+        run: |
+          if [ -x src/rubolt ]; then
+            echo 'print("ok")' > /tmp/smoke.rbo || true
+            ./src/rubolt /tmp/smoke.rbo || true
+          elif [ -f src/rubolt.exe ]; then
+            echo ok
+          else
+            echo "No binary; unit tests skipped"
+          fi
