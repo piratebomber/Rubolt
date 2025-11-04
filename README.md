@@ -152,4 +152,4 @@ vscode-rubolt/# VS Code extension
 
 ## License
 
-MIT
+Apache 2.0
