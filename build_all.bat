@@ -49,26 +49,23 @@ gcc -Wall -Wextra -std=c11 -O2 -c ..\Modules\random_mod.c -o random_mod.o
 gcc -Wall -Wextra -std=c11 -O2 -c ..\Modules\atomics_mod.c -o atomics_mod.o
 
 echo Linking all components...
-gcc main.o lexer.o parser.o ast.o interpreter.o typechecker.o module.o modules_registry.o bc_compiler.o vm.o ^
+set OBJS=main.o lexer.o parser.o ast.o interpreter.o typechecker.o module.o modules_registry.o bc_compiler.o vm.o ^
     dll_loader.o dll_import.o native_registry.o ^
     manager.o bopes.o ^
     gc.o type_info.o rc.o ^
-    exception.o ^
+    exception.o debugger.o profiler.o jit_compiler.o inline_cache.o python_bridge.o async.o event_loop.o threading.o ^
     rb_collections.o rb_list.o ^
-    string_mod.o random_mod.o atomics_mod.o ^
-    -o rubolt.exe -lm 2>nul
+    string_mod.o random_mod.o atomics_mod.o
+
+gcc %OBJS% -o rubolt.exe -lm
 
 if %ERRORLEVEL% NEQ 0 (
-    echo Trying without advanced modules...
-    gcc main.o lexer.o parser.o ast.o interpreter.o typechecker.o module.o modules_registry.o bc_compiler.o vm.o ^
-        dll_loader.o dll_import.o native_registry.o ^
-        manager.o bopes.o ^
-        gc.o type_info.o rc.o ^
-        exception.o ^
-        rb_collections.o rb_list.o ^
-        string_mod.o random_mod.o atomics_mod.o ^
-        -o rubolt.exe -lm
+    echo ✗ Linking failed
+    cd ..
+    exit /b 1
 )
+
+echo ✓ Interpreter built: src\rubolt.exe
 
 if %ERRORLEVEL% NEQ 0 (
     echo ✗ Failed to build interpreter
