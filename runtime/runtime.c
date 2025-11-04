@@ -4,6 +4,8 @@
 #include "interpreter.h"
 #include "../src/native_registry.h"
 #include "../src/frozen.h"
+#include "../gc/gc.h"
+#include "../rc/rc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +60,16 @@ static char* load_prelude(void) {
 }
 
 int runtime_run_source(const char* source) {
+    // Initialize memory management
+    if (!rubolt_gc) {
+        rubolt_gc = (GarbageCollector *)malloc(sizeof(GarbageCollector));
+        gc_init(rubolt_gc);
+    }
+    if (!rubolt_rc) {
+        rubolt_rc = (RefCounter *)malloc(sizeof(RefCounter));
+        rc_init(rubolt_rc);
+    }
+    
     native_registry_init();
     char* prelude = load_prelude();
     char* merged = join_sources(prelude, source);
