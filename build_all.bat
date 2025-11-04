@@ -77,7 +77,7 @@ cd ..
 
 REM Build CLI tool
 echo.
-echo [2/3] Building Rubolt CLI tool...
+echo [2/4] Building Rubolt CLI tool...
 cd cli
 gcc -Wall -Wextra -std=c11 -O2 rbcli.c -o rbcli.exe
 
@@ -90,9 +90,46 @@ echo ✓ CLI built: cli\rbcli.exe
 copy rbcli.exe ..\rbcli.exe > nul
 cd ..
 
+REM Build REPL
+echo.
+echo [3/4] Building Rubolt REPL...
+cd repl
+echo Compiling REPL components...
+gcc -Wall -Wextra -std=c11 -O2 -c repl.c -o repl.o -I..
+gcc -Wall -Wextra -std=c11 -O2 -c repl_main.c -o repl_main.o -I.. 2>nul || (
+    echo Creating repl_main.c...
+    (
+        echo #include "repl.h"
+        echo #include ^<stdio.h^>
+        echo.
+        echo int main^(void^) {
+        echo     ReplState repl;
+        echo     repl_init^(&repl^);
+        echo     repl_run^(&repl^);
+        echo     repl_shutdown^(&repl^);
+        echo     return 0;
+        echo }
+    ) > repl_main.c
+    gcc -Wall -Wextra -std=c11 -O2 -c repl_main.c -o repl_main.o -I..
+)
+
+echo Linking REPL with interpreter...
+set REPL_OBJS=repl.o repl_main.o .\..\src\lexer.o .\..\src\parser.o .\..\src\ast.o .\..\src\interpreter.o .\..\src\typechecker.o .\..\src\module.o .\..\src\modules_registry.o .\..\src\exception.o .\..\src\dll_loader.o .\..\src\dll_import.o .\..\src\native_registry.o .\..\src\bc_compiler.o .\..\src\vm.o .\..\bopes\bopes.o .\..\runtime\manager.o .\..\gc\gc.o .\..\gc\type_info.o .\..\rc\rc.o .\..\collections\rb_collections.o .\..\collections\rb_list.o .\..\Modules\string_mod.o .\..\Modules\random_mod.o .\..\Modules\atomics_mod.o
+
+gcc %REPL_OBJS% -o rubolt-repl.exe -lm
+
+if %ERRORLEVEL% NEQ 0 (
+    echo ✗ Failed to build REPL
+    cd ..
+    exit /b 1
+)
+echo ✓ REPL built: repl\rubolt-repl.exe
+copy rubolt-repl.exe ..\rubolt-repl.exe > nul
+cd ..
+
 REM Create directories
 echo.
-echo [3/3] Setting up directories...
+echo [4/4] Setting up directories...
 if not exist "lib" mkdir lib
 if not exist "stdlib" mkdir stdlib
 if not exist "build" mkdir build
@@ -104,11 +141,13 @@ echo ║     Build Completed Successfully!     ║
 echo ╚═══════════════════════════════════════╝
 echo.
 echo Executables:
-echo   src\rubolt.exe  - Rubolt interpreter
-echo   rbcli.exe       - CLI tool
+echo   src\rubolt.exe     - Rubolt interpreter
+echo   rbcli.exe          - CLI tool
+echo   rubolt-repl.exe    - Interactive REPL shell
 echo.
 echo Quick start:
 echo   rbcli init myproject
 echo   rbcli run examples\hello.rbo
+echo   rubolt-repl        - Start interactive shell
 echo   rbcli newlib mylib
 echo.
