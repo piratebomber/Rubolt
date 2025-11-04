@@ -1,13 +1,49 @@
 {
-    "files.exclude": {
-        "**/build": true,
-        "**/bin": true,
-        "**/.idea": true
+  "files.exclude": {
+    "**/build": true,
+    "**/bin": true,
+    "**/.idea": true
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "path": "C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe",
+      "args": ["-NoLogo"]
     },
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-    "C_Cpp.default.intelliSenseMode": "gcc-x64",
-    "C_Cpp.default.compilerPath": "/usr/bin/gcc",
-    "C_Cpp.default.includePath": [
-        "${workspaceFolder}/**"
-    ]
+    "Command Prompt": {
+      "path": "C:/Windows/System32/cmd.exe",
+      "args": []
+    },
+    "Git Bash": {
+      "path": "C:/Program Files/Git/bin/bash.exe",
+      "args": ["-i", "-l"],
+      "icon": "terminal-bash"
+    }
+  },
+  "terminal.integrated.env.windows": {
+    "PATH": "${workspaceFolder}\\;${workspaceFolder}\\src;${env:PATH}",
+    "RUBOLT_CLI": "${workspaceFolder}\\rbcli.exe",
+    "RUBOLT_BIN": "${workspaceFolder}\\src\\rubolt.exe"
+  },
+  "terminal.integrated.env.linux": {
+    "PATH": "${workspaceFolder}:${workspaceFolder}/src:${env:PATH}",
+    "RUBOLT_CLI": "${workspaceFolder}/rbcli",
+    "RUBOLT_BIN": "${workspaceFolder}/src/rubolt"
+  },
+  "terminal.integrated.env.osx": {
+    "PATH": "${workspaceFolder}:${workspaceFolder}/src:${env:PATH}",
+    "RUBOLT_CLI": "${workspaceFolder}/rbcli",
+    "RUBOLT_BIN": "${workspaceFolder}/src/rubolt"
+  },
+  "files.associations": {
+    "*.rbo": "plaintext"
+  },
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.intelliSenseMode": "gcc-x64",
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/**"
+  ],
+  "makefile.configureOnOpen": true,
+  "editor.formatOnSave": true
 }
