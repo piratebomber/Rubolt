@@ -1,4 +1,7 @@
 #include "repl.h"
+#include "../src/lexer.h"
+#include "../src/parser.h"
+#include "../src/interpreter.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -534,10 +537,299 @@ void repl_print_prompt(bool multiline) {
     fflush(stdout);
 }
 
+/* ========== SYNTAX HIGHLIGHTING ========== */
+
+/* ANSI color codes */
+#define ANSI_RESET          "\033[0m"
+#define ANSI_BOLD           "\033[1m"
+#define ANSI_DIM            "\033[2m"
+
+/* Syntax colors */
+#define COLOR_KEYWORD       "\033[35m"  /* Magenta */
+#define COLOR_TYPE          "\033[36m"  /* Cyan */
+#define COLOR_STRING        "\033[32m"  /* Green */
+#define COLOR_NUMBER        "\033[33m"  /* Yellow */
+#define COLOR_COMMENT       "\033[90m"  /* Bright black (gray) */
+#define COLOR_FUNCTION      "\033[34m"  /* Blue */
+#define COLOR_CONSTANT      "\033[91m"  /* Bright red */
+#define COLOR_OPERATOR      "\033[37m"  /* White */
+
+/* Check if a character is part of an identifier */
+static bool is_identifier_char(char c) {
+    return isalnum(c) || c == '_';
+}
+
+/* Check if word matches a keyword */
+static bool is_keyword(const char *word, size_t len) {
+    static const char *keywords[] = {
+        "if", "else", "elif", "for", "while", "break", "continue",
+        "return", "pass", "let", "const", "var", "def", "function",
+        "class", "import", "from", "as", "and", "or", "not", "in", "is",
+        NULL
+    };
+    
+    for (int i = 0; keywords[i]; i++) {
+        if (strlen(keywords[i]) == len && strncmp(word, keywords[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Check if word matches a type */
+static bool is_type(const char *word, size_t len) {
+    static const char *types[] = {
+        "string", "number", "bool", "void", "any", NULL
+    };
+    
+    for (int i = 0; types[i]; i++) {
+        if (strlen(types[i]) == len && strncmp(word, types[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Check if word matches a constant */
+static bool is_constant(const char *word, size_t len) {
+    static const char *constants[] = {
+        "true", "false", "null", NULL
+    };
+    
+    for (int i = 0; constants[i]; i++) {
+        if (strlen(constants[i]) == len && strncmp(word, constants[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Check if word matches a built-in function */
+static bool is_builtin_function(const char *word, size_t len) {
+    static const char *functions[] = {
+        "print", "printf", NULL
+    };
+    
+    for (int i = 0; functions[i]; i++) {
+        if (strlen(functions[i]) == len && strncmp(word, functions[i], len) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Highlight and print a single line with ANSI colors */
 void repl_highlight_syntax(const char *line) {
-    /* Basic syntax highlighting for terminal */
-    /* This is a placeholder - full implementation would use ANSI codes */
-    printf("%s\n", line);
+    if (!line) return;
+    
+    const char *p = line;
+    bool in_string = false;
+    char string_char = 0;
+    bool in_comment = false;
+    bool in_escape = false;
+    
+    while (*p) {
+        /* Handle escape sequences in strings */
+        if (in_escape) {
+            printf("%c", *p);
+            in_escape = false;
+            p++;
+            continue;
+        }
+        
+        /* Handle comments */
+        if (in_comment) {
+            printf("%c", *p);
+            p++;
+            continue;
+        }
+        
+        /* Check for comment start */
+        if (!in_string && (*p == '#' || (*p == '/' && *(p + 1) == '/'))) {
+            in_comment = true;
+            printf("%s%s%s", COLOR_COMMENT, p, ANSI_RESET);
+            break;
+        }
+        
+        /* Handle strings */
+        if (in_string) {
+            if (*p == '\\') {
+                in_escape = true;
+                printf("%c", *p);
+            } else if (*p == string_char) {
+                printf("%c%s", *p, ANSI_RESET);
+                in_string = false;
+            } else {
+                printf("%c", *p);
+            }
+            p++;
+            continue;
+        }
+        
+        /* Check for string start */
+        if (*p == '"' || *p == '\'') {
+            in_string = true;
+            string_char = *p;
+            printf("%s%c", COLOR_STRING, *p);
+            p++;
+            continue;
+        }
+        
+        /* Check for numbers */
+        if (isdigit(*p) || (*p == '.' && isdigit(*(p + 1)))) {
+            printf("%s", COLOR_NUMBER);
+            while (isdigit(*p) || *p == '.') {
+                printf("%c", *p);
+                p++;
+            }
+            printf("%s", ANSI_RESET);
+            continue;
+        }
+        
+        /* Check for identifiers/keywords */
+        if (isalpha(*p) || *p == '_') {
+            const char *word_start = p;
+            size_t word_len = 0;
+            
+            while (is_identifier_char(*p)) {
+                word_len++;
+                p++;
+            }
+            
+            /* Check if followed by '(' for function call */
+            const char *after = p;
+            while (isspace(*after)) after++;
+            bool is_function_call = (*after == '(');
+            
+            /* Determine color based on word type */
+            if (is_keyword(word_start, word_len)) {
+                printf("%s%.*s%s", COLOR_KEYWORD, (int)word_len, word_start, ANSI_RESET);
+            } else if (is_type(word_start, word_len)) {
+                printf("%s%.*s%s", COLOR_TYPE, (int)word_len, word_start, ANSI_RESET);
+            } else if (is_constant(word_start, word_len)) {
+                printf("%s%.*s%s", COLOR_CONSTANT, (int)word_len, word_start, ANSI_RESET);
+            } else if (is_builtin_function(word_start, word_len) || is_function_call) {
+                printf("%s%.*s%s", COLOR_FUNCTION, (int)word_len, word_start, ANSI_RESET);
+            } else {
+                /* Regular identifier */
+                printf("%.*s", (int)word_len, word_start);
+            }
+            continue;
+        }
+        
+        /* Check for operators */
+        if (strchr("+-*/%=!<>&|~^", *p)) {
+            printf("%s", COLOR_OPERATOR);
+            /* Handle multi-character operators */
+            if ((*p == '=' && *(p + 1) == '=') ||
+                (*p == '!' && *(p + 1) == '=') ||
+                (*p == '<' && *(p + 1) == '=') ||
+                (*p == '>' && *(p + 1) == '=') ||
+                (*p == '&' && *(p + 1) == '&') ||
+                (*p == '|' && *(p + 1) == '|') ||
+                (*p == '-' && *(p + 1) == '>')) {
+                printf("%c%c", *p, *(p + 1));
+                p += 2;
+            } else {
+                printf("%c", *p);
+                p++;
+            }
+            printf("%s", ANSI_RESET);
+            continue;
+        }
+        
+        /* Default: print as-is */
+        printf("%c", *p);
+        p++;
+    }
+    
+    printf("\n");
+}
+
+/* ========== RUBOLT INTERPRETER INTEGRATION ========== */
+
+/* Global environment for REPL session */
+static Environment *g_repl_env = NULL;
+
+/* Execute Rubolt code through interpreter */
+static bool repl_execute_code(const char *code) {
+    if (!code || strlen(code) == 0) return false;
+    
+    /* Initialize REPL environment if needed */
+    if (!g_repl_env) {
+        g_repl_env = (Environment *)malloc(sizeof(Environment));
+        env_init(g_repl_env);
+    }
+    
+    /* Lex the source code */
+    Lexer lexer;
+    lexer_init(&lexer, code);
+    
+    /* Parse into AST */
+    Parser parser;
+    parser_init(&parser, &lexer);
+    
+    size_t stmt_count = 0;
+    Stmt **statements = parse(&parser, &stmt_count);
+    
+    if (parser.had_error || !statements) {
+        printf("\033[31mSyntax Error\033[0m: Failed to parse input\n");
+        return false;
+    }
+    
+    /* Execute statements */
+    bool had_runtime_error = false;
+    
+    for (size_t i = 0; i < stmt_count; i++) {
+        if (!statements[i]) continue;
+        
+        /* Check for expression statements that should print their result */
+        bool is_expr_stmt = (statements[i]->type == STMT_EXPR);
+        
+        /* Execute the statement */
+        g_repl_env->has_return = false;
+        exec_stmt(g_repl_env, statements[i]);
+        
+        /* In REPL mode, print expression statement results */
+        if (is_expr_stmt && statements[i]->as.expression) {
+            Value result = eval_expr(g_repl_env, statements[i]->as.expression);
+            
+            /* Only print non-null results in REPL */
+            if (result.type != VAL_NULL) {
+                printf("\033[36m=> \033[0m");
+                value_print(result);
+                printf("\n");
+            }
+            
+            value_free(&result);
+        }
+        
+        /* Handle return in REPL context */
+        if (g_repl_env->has_return) {
+            printf("\033[33mWarning\033[0m: Return statement outside function\n");
+            value_free(&g_repl_env->return_value);
+            g_repl_env->has_return = false;
+        }
+    }
+    
+    /* Free statements */
+    for (size_t i = 0; i < stmt_count; i++) {
+        if (statements[i]) {
+            stmt_free(statements[i]);
+        }
+    }
+    free(statements);
+    
+    return !had_runtime_error;
+}
+
+/* Cleanup REPL environment */
+static void repl_cleanup_environment(void) {
+    if (g_repl_env) {
+        env_free(g_repl_env);
+        free(g_repl_env);
+        g_repl_env = NULL;
+    }
 }
 
 /* ========== MAIN REPL LOOP ========== */
@@ -547,6 +839,9 @@ void repl_run(ReplState *repl) {
     
     /* Try to load history */
     repl_history_load(&repl->history, ".rubolt_history");
+    
+    /* Register cleanup handler */
+    atexit(repl_cleanup_environment);
     
     while (repl->running) {
         repl_print_prompt(repl->multiline_mode);
@@ -603,8 +898,8 @@ void repl_run(ReplState *repl) {
             code_to_exec = line;
         }
         
-        /* TODO: Execute code through Rubolt interpreter */
-        printf("=> Executing: %s\n", code_to_exec);
+        /* Execute code through Rubolt interpreter */
+        repl_execute_code(code_to_exec);
         
         /* Clear multiline buffer */
         if (repl->multiline_buffer) {
@@ -615,4 +910,7 @@ void repl_run(ReplState *repl) {
     
     /* Save history */
     repl_history_save(&repl->history, ".rubolt_history");
+    
+    /* Cleanup environment */
+    repl_cleanup_environment();
 }
