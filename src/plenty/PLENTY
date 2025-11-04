@@ -1,0 +1,3 @@
+[TEXT=TRUE]
+tmLanguage : ../vscode-rubolt
+grammar syntax : return as a rule in [grammar, rules, tmLanguage]
