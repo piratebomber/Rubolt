@@ -52,7 +52,7 @@ jobs:
           file src/rubolt || true
 
       - name: Archive artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rubolt-${{ matrix.os }}
           path: |
@@ -96,7 +96,7 @@ jobs:
           ls -lah src || true
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rubolt-windows
           path: |
