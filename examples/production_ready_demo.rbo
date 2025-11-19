@@ -1,0 +1,674 @@
+// Production-Ready Rubolt Demonstration
+// Showcases advanced features with full error handling, constraints, and optimization
+
+import file
+import json
+import time
+import http
+import test
+
+// =============================================================================
+// ADVANCED GENERICS WITH COMPLEX CONSTRAINTS
+// =============================================================================
+
+// Multi-constraint generic with cross-parameter validation
+def advanced_sort<T: Comparable + Serializable + Clone, U: Numeric>(
+    items: T[], 
+    weights: U[], 
+    comparator: function(T, T, U, U) -> number
+) -> T[] where T.size() == U.size() {
+    
+    ASSERT(items.length == weights.length, "Items and weights must have same length");
+    
+    // Create weighted pairs for sorting
+    let pairs = [];
+    for (i in 0..items.length) {
+        pairs.append({item: items[i].clone(), weight: weights[i]});
+    }
+    
+    // Sort using custom comparator with constraint validation
+    return pairs
+        .sort((a, b) => comparator(a.item, b.item, a.weight, b.weight))
+        .map(pair => pair.item);
+}
+
+// Generic data structure with variance constraints
+class SafeContainer<+T: NonNull + Serializable> {
+    private items: T[];
+    private capacity: number;
+    private readonly max_capacity: number = 1000000;
+    
+    def init(initial_capacity: number) {
+        ASSERT_BOUNDS(initial_capacity, 1, this.max_capacity, "initial_capacity");
+        
+        this.capacity = initial_capacity;
+        this.items = [];
+    }
+    
+    def add(item: T) -> Result<void, string> {
+        if (item == null) {
+            return Error("Cannot add null item to SafeContainer");
+        }
+        
+        if (this.items.length >= this.capacity) {
+            if (this.capacity >= this.max_capacity) {
+                return Error("Container at maximum capacity");
+            }
+            
+            // Auto-resize with bounds checking
+            let new_capacity = min(this.capacity * 2, this.max_capacity);
+            this.resize(new_capacity);
+        }
+        
+        this.items.append(item);
+        return Ok(void);
+    }
+    
+    def get(index: number) -> Result<T, string> {
+        ASSERT_BOUNDS(index, 0, this.items.length, "index");
+        
+        try {
+            return Ok(this.items[index]);
+        } catch (IndexError e) {
+            return Error("Index out of bounds: " + e.message);
+        }
+    }
+    
+    private def resize(new_capacity: number) -> void {
+        ASSERT(new_capacity > this.capacity, "New capacity must be larger");
+        ASSERT(new_capacity <= this.max_capacity, "Capacity exceeds maximum");
+        
+        this.capacity = new_capacity;
+    }
+}
+
+// =============================================================================
+// ADVANCED PATTERN MATCHING WITH COMPLEX CONSTRAINTS
+// =============================================================================
+
+type ApiResponse<T> = 
+    | Success<T>
+    | Error { code: number, message: string, details?: any }
+    | Loading { progress: number }
+    | Timeout { duration: number };
+
+def process_api_response<T: Serializable>(response: ApiResponse<T>) -> Result<T, string> {
+    match response {
+        // Pattern with type constraints and guards
+        Success(data: T) if validate_data_integrity(data) => {
+            return Ok(data);
+        };
+        
+        // Complex destructuring with validation
+        Error { code: c, message: m, details: d } if c >= 400 && c < 500 => {
+            let error_msg = "Client error " + c + ": " + m;
+            if (d != null) {
+                error_msg += " (Details: " + json.stringify(d) + ")";
+            }
+            return Error(error_msg);
+        };
+        
+        // Pattern with range constraints
+        Error { code: c, message: m } if c >= 500 => {
+            return Error("Server error " + c + ": " + m);
+        };
+        
+        // Pattern with numeric constraints
+        Loading { progress: p } if p >= 0.0 && p <= 1.0 => {
+            return Error("Request still in progress: " + (p * 100) + "%");
+        };
+        
+        // Pattern with temporal constraints
+        Timeout { duration: d } if d > 30000 => {
+            return Error("Request timeout after " + (d / 1000) + " seconds");
+        };
+        
+        // Catch-all with constraint violation reporting
+        _ => {
+            return Error("Invalid API response format or constraint violation");
+        };
+    }
+}
+
+def validate_data_integrity<T: Serializable>(data: T) -> bool {
+    try {
+        // Validate serialization roundtrip
+        let serialized = json.stringify(data);
+        let deserialized = json.parse(serialized);
+        
+        // Deep equality check with type validation
+        return deep_equals_with_type_check(data, deserialized);
+    } catch (Exception e) {
+        return false;
+    }
+}
+
+// =============================================================================
+// COMPREHENSIVE ERROR HANDLING WITH RUNTIME INTEGRATION
+// =============================================================================
+
+class DatabaseManager {
+    private connection_pool: ConnectionPool;
+    private transaction_log: TransactionLog;
+    
+    def init(config: DatabaseConfig) {
+        this.connection_pool = ConnectionPool(config.max_connections);
+        this.transaction_log = TransactionLog(config.log_file);
+    }
+    
+    def execute_transaction<T>(operations: function() -> T) -> Result<T, DatabaseError> {
+        let transaction_id = generate_transaction_id();
+        let connection = null;
+        
+        try {
+            // Acquire connection with timeout
+            connection = this.connection_pool.acquire_with_timeout(5000)?;
+            
+            // Begin transaction with savepoint
+            connection.begin_transaction()?;
+            let savepoint = connection.create_savepoint("sp_" + transaction_id)?;
+            
+            this.transaction_log.log_start(transaction_id, time.now());
+            
+            // Execute operations with panic recovery
+            let result = execute_with_panic_recovery(() => {
+                return operations();
+            });
+            
+            match result {
+                Ok(value) => {
+                    connection.commit_transaction()?;
+                    this.transaction_log.log_success(transaction_id, time.now());
+                    return Ok(value);
+                };
+                
+                Error(e) => {
+                    connection.rollback_to_savepoint(savepoint)?;
+                    this.transaction_log.log_error(transaction_id, e.message, time.now());
+                    return Error(DatabaseError("Transaction failed: " + e.message, 500));
+                };
+            }
+            
+        } catch (ConnectionTimeoutError e) {
+            this.transaction_log.log_error(transaction_id, "Connection timeout", time.now());
+            return Error(DatabaseError("Connection timeout: " + e.message, 408));
+            
+        } catch (TransactionError e) {
+            if (connection != null) {
+                try {
+                    connection.rollback_transaction();
+                } catch (RollbackError re) {
+                    // Log rollback failure but don't mask original error
+                    this.transaction_log.log_critical(transaction_id, 
+                        "Rollback failed: " + re.message, time.now());
+                }
+            }
+            
+            this.transaction_log.log_error(transaction_id, e.message, time.now());
+            return Error(DatabaseError("Transaction error: " + e.message, 500));
+            
+        } catch (Exception e) {
+            // Unexpected error - trigger panic with full context
+            let context = {
+                transaction_id: transaction_id,
+                connection_state: connection?.get_state(),
+                timestamp: time.now(),
+                stack_trace: get_current_stack_trace()
+            };
+            
+            runtime_panic_with_context(PANIC_CUSTOM, context, sizeof(context),
+                "Unexpected error in database transaction: %s", e.message);
+            
+        } finally {
+            // Guaranteed cleanup
+            if (connection != null) {
+                this.connection_pool.release(connection);
+            }
+            
+            this.transaction_log.log_end(transaction_id, time.now());
+        }
+        
+        // Should never reach here due to comprehensive error handling
+        UNREACHABLE("Database transaction execution path");
+    }
+}
+
+def execute_with_panic_recovery<T>(operation: function() -> T) -> Result<T, string> {
+    // Set up panic handler for this operation
+    let panic_occurred = false;
+    let panic_message = "";
+    
+    let old_handler = set_panic_handler((info) => {
+        panic_occurred = true;
+        panic_message = info.message;
+        return true; // Handle the panic
+    });
+    
+    try {
+        let result = operation();
+        
+        if (panic_occurred) {
+            return Error("Operation panicked: " + panic_message);
+        }
+        
+        return Ok(result);
+        
+    } finally {
+        restore_panic_handler(old_handler);
+    }
+}
+
+// =============================================================================
+// JIT-OPTIMIZED COMPUTATIONAL KERNELS
+// =============================================================================
+
+@jit_compile
+@hot_path
+def matrix_operations_kernel(
+    a: number[][], 
+    b: number[][], 
+    operation: string
+) -> number[][] {
+    
+    ASSERT_NOT_NULL(a, "matrix a");
+    ASSERT_NOT_NULL(b, "matrix b");
+    ASSERT(a.length > 0 && b.length > 0, "Matrices cannot be empty");
+    
+    let rows_a = a.length;
+    let cols_a = a[0].length;
+    let rows_b = b.length;
+    let cols_b = b[0].length;
+    
+    match operation {
+        "multiply" => {
+            ASSERT(cols_a == rows_b, "Matrix dimensions incompatible for multiplication");
+            
+            let result = create_matrix(rows_a, cols_b);
+            
+            // Optimized matrix multiplication with loop tiling
+            let tile_size = 64;
+            for (i in 0..rows_a step tile_size) {
+                for (j in 0..cols_b step tile_size) {
+                    for (k in 0..cols_a step tile_size) {
+                        
+                        let i_max = min(i + tile_size, rows_a);
+                        let j_max = min(j + tile_size, cols_b);
+                        let k_max = min(k + tile_size, cols_a);
+                        
+                        for (ii in i..i_max) {
+                            for (jj in j..j_max) {
+                                let sum = 0.0;
+                                for (kk in k..k_max) {
+                                    sum += a[ii][kk] * b[kk][jj];
+                                }
+                                result[ii][jj] += sum;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        };
+        
+        "add" => {
+            ASSERT(rows_a == rows_b && cols_a == cols_b, 
+                   "Matrix dimensions must match for addition");
+            
+            let result = create_matrix(rows_a, cols_a);
+            
+            // Vectorized addition
+            for (i in 0..rows_a) {
+                for (j in 0..cols_a) {
+                    result[i][j] = a[i][j] + b[i][j];
+                }
+            }
+            
+            return result;
+        };
+        
+        _ => {
+            runtime_panic_with_type(PANIC_INVALID_OPERATION,
+                                   "Unknown matrix operation: %s", operation);
+        };
+    }
+}
+
+@inline_always
+def create_matrix(rows: number, cols: number) -> number[][] {
+    let matrix = [];
+    for (i in 0..rows) {
+        matrix[i] = [];
+        for (j in 0..cols) {
+            matrix[i][j] = 0.0;
+        }
+    }
+    return matrix;
+}
+
+// =============================================================================
+// COMPREHENSIVE TESTING WITH PROPERTY-BASED VALIDATION
+// =============================================================================
+
+def run_production_tests() -> void {
+    test.suite("Advanced Generics", () => {
+        test.case("SafeContainer with constraints", () => {
+            let container = SafeContainer<string>(10);
+            
+            // Test successful operations
+            let result1 = container.add("test");
+            assert.true(result_is_ok(result1), "Should add valid string");
+            
+            let result2 = container.get(0);
+            match result2 {
+                Ok(value) => assert.equal(value, "test", "Should retrieve correct value");
+                Error(e) => assert.fail("Should not error: " + e);
+            }
+            
+            // Test constraint violations
+            let null_result = container.add(null);
+            assert.true(result_is_error(null_result), "Should reject null values");
+        });
+        
+        test.case("Generic sorting with constraints", () => {
+            let items = ["apple", "banana", "cherry"];
+            let weights = [3.0, 1.0, 2.0];
+            
+            let sorted = advanced_sort(items, weights, (a, b, wa, wb) => {
+                return wa - wb; // Sort by weight
+            });
+            
+            assert.equal(sorted, ["banana", "cherry", "apple"], 
+                        "Should sort by weights");
+        });
+    });
+    
+    test.suite("Pattern Matching", () => {
+        test.case("API response processing", () => {
+            let success_response = Success({id: 1, name: "test"});
+            let result = process_api_response(success_response);
+            
+            match result {
+                Ok(data) => {
+                    assert.equal(data.id, 1, "Should extract data correctly");
+                };
+                Error(e) => assert.fail("Should not error: " + e);
+            }
+            
+            let error_response = Error {code: 404, message: "Not found"};
+            let error_result = process_api_response(error_response);
+            assert.true(result_is_error(error_result), "Should handle error responses");
+        });
+    });
+    
+    test.suite("Error Handling", () => {
+        test.case("Database transaction recovery", () => {
+            let db = DatabaseManager({
+                max_connections: 5,
+                log_file: "test_transactions.log"
+            });
+            
+            // Test successful transaction
+            let success_result = db.execute_transaction(() => {
+                return "success";
+            });
+            
+            match success_result {
+                Ok(value) => assert.equal(value, "success", "Should complete transaction");
+                Error(e) => assert.fail("Transaction should succeed: " + e.message);
+            }
+            
+            // Test transaction with panic recovery
+            let panic_result = db.execute_transaction(() => {
+                runtime_panic("Simulated panic in transaction");
+                return "never reached";
+            });
+            
+            assert.true(result_is_error(panic_result), "Should recover from panic");
+        });
+    });
+    
+    test.suite("JIT Optimization", () => {
+        test.case("Matrix operations performance", () => {
+            let a = [[1.0, 2.0], [3.0, 4.0]];
+            let b = [[5.0, 6.0], [7.0, 8.0]];
+            
+            let start_time = time.now_ms();
+            
+            // This should be JIT compiled after several iterations
+            for (i in 0..100) {
+                let result = matrix_operations_kernel(a, b, "multiply");
+            }
+            
+            let end_time = time.now_ms();
+            let duration = end_time - start_time;
+            
+            // Performance should improve with JIT compilation
+            assert.true(duration < 1000, "JIT should optimize performance");
+        });
+    });
+    
+    // Property-based tests with complex generators
+    test.property("SafeContainer maintains invariants",
+        test.generate.list(test.generate.string(1, 100), 1, 1000),
+        (strings) => {
+            let container = SafeContainer<string>(strings.length + 10);
+            
+            // Add all strings
+            for (str in strings) {
+                let result = container.add(str);
+                if (result_is_error(result)) return false;
+            }
+            
+            // Verify all can be retrieved
+            for (i in 0..strings.length) {
+                let result = container.get(i);
+                match result {
+                    Ok(value) => {
+                        if (value != strings[i]) return false;
+                    };
+                    Error(_) => return false;
+                }
+            }
+            
+            return true;
+        }
+    );
+    
+    test.property("Matrix operations are associative",
+        test.generate.matrix(2, 2, -100.0, 100.0),
+        test.generate.matrix(2, 2, -100.0, 100.0),
+        test.generate.matrix(2, 2, -100.0, 100.0),
+        (a, b, c) => {
+            let ab_c = matrix_operations_kernel(
+                matrix_operations_kernel(a, b, "multiply"), 
+                c, 
+                "multiply"
+            );
+            
+            let a_bc = matrix_operations_kernel(
+                a, 
+                matrix_operations_kernel(b, c, "multiply"), 
+                "multiply"
+            );
+            
+            return matrices_approximately_equal(ab_c, a_bc, 1e-10);
+        }
+    );
+}
+
+// =============================================================================
+// MAIN PRODUCTION DEMONSTRATION
+// =============================================================================
+
+def main() -> void {
+    print("=== Production-Ready Rubolt Demonstration ===");
+    
+    // Initialize runtime with production settings
+    enable_memory_debugging();
+    set_panic_log_file("rubolt_production.log");
+    
+    try {
+        // Run comprehensive test suite
+        print("\n1. Running comprehensive test suite...");
+        run_production_tests();
+        
+        // Demonstrate advanced generics
+        print("\n2. Advanced generics demonstration...");
+        demonstrate_advanced_generics();
+        
+        // Demonstrate pattern matching
+        print("\n3. Pattern matching demonstration...");
+        demonstrate_pattern_matching();
+        
+        // Demonstrate error handling
+        print("\n4. Error handling demonstration...");
+        demonstrate_error_handling();
+        
+        // Demonstrate JIT optimization
+        print("\n5. JIT optimization demonstration...");
+        demonstrate_jit_optimization();
+        
+        print("\n=== All demonstrations completed successfully ===");
+        
+    } catch (Exception e) {
+        print("Demonstration failed: " + e.message);
+        print("Stack trace: " + e.stack_trace);
+        
+    } finally {
+        // Cleanup and memory leak detection
+        print("\n=== Memory leak report ===");
+        print_memory_leaks();
+        disable_memory_debugging();
+    }
+}
+
+def demonstrate_advanced_generics() -> void {
+    // Complex generic usage with multiple constraints
+    let container = SafeContainer<dict>(100);
+    
+    let test_data = [
+        {id: 1, name: "Alice", score: 95.5},
+        {id: 2, name: "Bob", score: 87.2},
+        {id: 3, name: "Charlie", score: 92.1}
+    ];
+    
+    for (item in test_data) {
+        let result = container.add(item);
+        match result {
+            Ok(_) => print("  Added: " + item.name);
+            Error(e) => print("  Error: " + e);
+        }
+    }
+    
+    print("  Container size: " + container.size());
+}
+
+def demonstrate_pattern_matching() -> void {
+    let responses = [
+        Success({user_id: 123, username: "alice"}),
+        Error {code: 404, message: "User not found"},
+        Loading {progress: 0.75},
+        Timeout {duration: 35000}
+    ];
+    
+    for (response in responses) {
+        let result = process_api_response(response);
+        match result {
+            Ok(data) => print("  Success: " + json.stringify(data));
+            Error(e) => print("  Error: " + e);
+        }
+    }
+}
+
+def demonstrate_error_handling() -> void {
+    let db = DatabaseManager({
+        max_connections: 3,
+        log_file: "demo_transactions.log"
+    });
+    
+    // Successful transaction
+    let result1 = db.execute_transaction(() => {
+        return {operation: "insert", rows_affected: 5};
+    });
+    
+    print("  Transaction 1: " + (result_is_ok(result1) ? "Success" : "Failed"));
+    
+    // Transaction with simulated error
+    let result2 = db.execute_transaction(() => {
+        if (random() > 0.5) {
+            throw DatabaseError("Simulated constraint violation", 400);
+        }
+        return {operation: "update", rows_affected: 3};
+    });
+    
+    print("  Transaction 2: " + (result_is_ok(result2) ? "Success" : "Failed"));
+}
+
+def demonstrate_jit_optimization() -> void {
+    let matrix_a = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]];
+    let matrix_b = [[9.0, 8.0, 7.0], [6.0, 5.0, 4.0], [3.0, 2.0, 1.0]];
+    
+    let start_time = time.now_ms();
+    
+    // Multiple iterations to trigger JIT compilation
+    let result = null;
+    for (i in 0..50) {
+        result = matrix_operations_kernel(matrix_a, matrix_b, "multiply");
+    }
+    
+    let end_time = time.now_ms();
+    
+    print("  Matrix multiplication (50 iterations): " + (end_time - start_time) + "ms");
+    print("  Result matrix size: " + result.length + "x" + result[0].length);
+}
+
+// Helper functions
+def matrices_approximately_equal(a: number[][], b: number[][], epsilon: number) -> bool {
+    if (a.length != b.length) return false;
+    
+    for (i in 0..a.length) {
+        if (a[i].length != b[i].length) return false;
+        
+        for (j in 0..a[i].length) {
+            if (abs(a[i][j] - b[i][j]) > epsilon) return false;
+        }
+    }
+    
+    return true;
+}
+
+def deep_equals_with_type_check(a: any, b: any) -> bool {
+    if (typeof(a) != typeof(b)) return false;
+    
+    match typeof(a) {
+        "object" => {
+            let keys_a = Object.keys(a);
+            let keys_b = Object.keys(b);
+            
+            if (keys_a.length != keys_b.length) return false;
+            
+            for (key in keys_a) {
+                if (!b.hasOwnProperty(key)) return false;
+                if (!deep_equals_with_type_check(a[key], b[key])) return false;
+            }
+            
+            return true;
+        };
+        
+        "array" => {
+            if (a.length != b.length) return false;
+            
+            for (i in 0..a.length) {
+                if (!deep_equals_with_type_check(a[i], b[i])) return false;
+            }
+            
+            return true;
+        };
+        
+        _ => return a == b;
+    }
+}
+
+// Run the production demonstration
+main();
