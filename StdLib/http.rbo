@@ -1,0 +1,87 @@
+// HTTP client standard library module
+import http
+import json
+
+// HTTP response type
+type HttpResponse = {
+    status: number,
+    body: string,
+    headers: dict
+};
+
+// GET request with JSON parsing
+def get_json(url: string) -> any {
+    let response = http.get(url);
+    if (response == null) { return null; }
+    return json.parse(response);
+}
+
+// POST JSON data
+def post_json(url: string, data: any) -> any {
+    let json_data = json.stringify(data);
+    let response = http.post(url, json_data, "application/json");
+    if (response == null) { return null; }
+    return json.parse(response);
+}
+
+// PUT JSON data
+def put_json(url: string, data: any) -> any {
+    let json_data = json.stringify(data);
+    let response = http.put(url, json_data, "application/json");
+    if (response == null) { return null; }
+    return json.parse(response);
+}
+
+// Simple REST client
+class RestClient {
+    base_url: string;
+    headers: dict;
+    
+    def init(base_url: string) {
+        this.base_url = base_url;
+        this.headers = {};
+    }
+    
+    def set_header(key: string, value: string) -> void {
+        this.headers[key] = value;
+    }
+    
+    def get(endpoint: string) -> any {
+        let url = this.base_url + endpoint;
+        return get_json(url);
+    }
+    
+    def post(endpoint: string, data: any) -> any {
+        let url = this.base_url + endpoint;
+        return post_json(url, data);
+    }
+    
+    def put(endpoint: string, data: any) -> any {
+        let url = this.base_url + endpoint;
+        return put_json(url, data);
+    }
+    
+    def delete(endpoint: string) -> any {
+        let url = this.base_url + endpoint;
+        let response = http.delete(url);
+        if (response == null) { return null; }
+        return json.parse(response);
+    }
+}
+
+// URL utilities
+def url_encode(str: string) -> string {
+    // Basic URL encoding - replace spaces and special chars
+    return str.replace(" ", "%20")
+              .replace("&", "%26")
+              .replace("=", "%3D")
+              .replace("?", "%3F");
+}
+
+def build_query_string(params: dict) -> string {
+    let parts = [];
+    for (key, value in params) {
+        parts.append(url_encode(key) + "=" + url_encode(value));
+    }
+    return parts.join("&");
+}

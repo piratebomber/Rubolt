@@ -1,0 +1,149 @@
+// Web API Client Example using HTTP and JSON modules
+import http
+import json
+import time
+import file
+
+class ApiClient {
+    base_url: string;
+    api_key: string;
+    
+    def init(base_url: string, api_key: string) {
+        this.base_url = base_url;
+        this.api_key = api_key;
+    }
+    
+    def get_user(user_id: number) -> dict {
+        let url = this.base_url + "/users/" + user_id;
+        let response = http.get(url);
+        
+        if (response == null) {
+            return {"error": "Failed to fetch user"};
+        }
+        
+        return json.parse(response);
+    }
+    
+    def create_user(user_data: dict) -> dict {
+        let url = this.base_url + "/users";
+        let json_data = json.stringify(user_data);
+        let response = http.post(url, json_data, "application/json");
+        
+        if (response == null) {
+            return {"error": "Failed to create user"};
+        }
+        
+        return json.parse(response);
+    }
+    
+    def update_user(user_id: number, user_data: dict) -> dict {
+        let url = this.base_url + "/users/" + user_id;
+        let json_data = json.stringify(user_data);
+        let response = http.put(url, json_data, "application/json");
+        
+        if (response == null) {
+            return {"error": "Failed to update user"};
+        }
+        
+        return json.parse(response);
+    }
+    
+    def delete_user(user_id: number) -> bool {
+        let url = this.base_url + "/users/" + user_id;
+        let response = http.delete(url);
+        return response != null;
+    }
+}
+
+class Logger {
+    log_file: string;
+    
+    def init(log_file: string) {
+        this.log_file = log_file;
+    }
+    
+    def log(level: string, message: string) -> void {
+        let timestamp = time.format(time.now(), "%Y-%m-%d %H:%M:%S");
+        let log_entry = "[" + timestamp + "] " + level + ": " + message + "\n";
+        file.append(this.log_file, log_entry);
+    }
+    
+    def info(message: string) -> void {
+        this.log("INFO", message);
+    }
+    
+    def error(message: string) -> void {
+        this.log("ERROR", message);
+    }
+    
+    def debug(message: string) -> void {
+        this.log("DEBUG", message);
+    }
+}
+
+def main() -> void {
+    print("=== Web API Client Demo ===");
+    
+    // Initialize logger
+    let logger = Logger("api_client.log");
+    logger.info("Starting API client demo");
+    
+    // Initialize API client (using JSONPlaceholder for demo)
+    let client = ApiClient("https://jsonplaceholder.typicode.com", "demo-key");
+    
+    // Fetch a user
+    print("\n--- Fetching User ---");
+    let user = client.get_user(1);
+    
+    if (user["error"] == null) {
+        print("User name: " + user["name"]);
+        print("User email: " + user["email"]);
+        logger.info("Successfully fetched user: " + user["name"]);
+    } else {
+        print("Error: " + user["error"]);
+        logger.error("Failed to fetch user: " + user["error"]);
+    }
+    
+    // Create a new user
+    print("\n--- Creating User ---");
+    let new_user = {
+        "name": "John Rubolt",
+        "email": "john@rubolt.dev",
+        "username": "johnrubolt"
+    };
+    
+    let created = client.create_user(new_user);
+    if (created["error"] == null) {
+        print("Created user with ID: " + created["id"]);
+        logger.info("Created new user: " + created["name"]);
+    } else {
+        print("Error: " + created["error"]);
+        logger.error("Failed to create user: " + created["error"]);
+    }
+    
+    // Save API responses to file
+    print("\n--- Saving Data ---");
+    let api_data = {
+        "timestamp": time.now(),
+        "user": user,
+        "created_user": created
+    };
+    
+    let json_output = json.stringify(api_data);
+    file.write("api_responses.json", json_output);
+    print("API responses saved to api_responses.json");
+    
+    // Read and display log file
+    print("\n--- Log Entries ---");
+    if (file.exists("api_client.log")) {
+        let log_lines = file.readlines("api_client.log");
+        for (line in log_lines) {
+            print(line);
+        }
+    }
+    
+    logger.info("API client demo completed");
+    print("\n=== Demo Complete ===");
+}
+
+main();

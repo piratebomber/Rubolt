@@ -1,0 +1,56 @@
+// File I/O standard library module
+import file
+
+// High-level file operations
+def read_text(path: string) -> string {
+    return file.read(path);
+}
+
+def write_text(path: string, content: string) -> bool {
+    return file.write(path, content);
+}
+
+def append_text(path: string, content: string) -> bool {
+    return file.append(path, content);
+}
+
+def file_exists(path: string) -> bool {
+    return file.exists(path);
+}
+
+def get_file_size(path: string) -> number {
+    return file.size(path);
+}
+
+def delete_file(path: string) -> bool {
+    return file.delete(path);
+}
+
+def copy_file(src: string, dst: string) -> bool {
+    return file.copy(src, dst);
+}
+
+def read_lines(path: string) -> list {
+    return file.readlines(path);
+}
+
+// Utility functions
+def read_json(path: string) -> any {
+    import json;
+    let content = read_text(path);
+    if (content == null) { return null; }
+    return json.parse(content);
+}
+
+def write_json(path: string, data: any) -> bool {
+    import json;
+    let content = json.stringify(data);
+    return write_text(path, content);
+}
+
+def backup_file(path: string) -> bool {
+    import time;
+    let timestamp = time.now();
+    let backup_path = path + ".bak." + timestamp;
+    return copy_file(path, backup_path);
+}

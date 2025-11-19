@@ -7,8 +7,27 @@
   "engines": {
     "vscode": "^1.60.0"
   },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.60.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0",
+    "vscode-languageserver": "^8.1.0",
+    "vscode-languageserver-textdocument": "^1.0.8"
+  },
   "categories": [
     "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:rubolt"
   ],
   "contributes": {
     "languages": [
@@ -35,6 +54,34 @@
       "[rubolt]": {
         "editor.tabSize": 4,
         "editor.insertSpaces": true
+      }
+    },
+    "commands": [
+      {
+        "command": "rubolt.run",
+        "title": "Run Rubolt File",
+        "category": "Rubolt"
+      },
+      {
+        "command": "rubolt.repl",
+        "title": "Start Rubolt REPL",
+        "category": "Rubolt"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Rubolt",
+      "properties": {
+        "rubolt.executablePath": {
+          "type": "string",
+          "default": "rbcli",
+          "description": "Path to the Rubolt CLI executable"
+        },
+        "rubolt.enableLSP": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Rubolt Language Server Protocol support"
+        }
       }
     }
   },

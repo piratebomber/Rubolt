@@ -1,0 +1,86 @@
+// Rubolt Standard Library Demo
+import file
+import json
+import time
+import http
+
+def main() -> void {
+    print("=== Rubolt Standard Library Demo ===");
+    
+    // File I/O Demo
+    print("\n--- File I/O Demo ---");
+    let content = "Hello from Rubolt!\nThis is a test file.";
+    file.write("test.txt", content);
+    
+    let read_content = file.read("test.txt");
+    print("File content: " + read_content);
+    
+    let file_size = file.size("test.txt");
+    print("File size: " + file_size + " bytes");
+    
+    // JSON Demo
+    print("\n--- JSON Demo ---");
+    let data = {
+        "name": "Rubolt",
+        "version": "1.0",
+        "features": ["fast", "typed", "modern"]
+    };
+    
+    let json_str = json.stringify(data);
+    print("JSON string: " + json_str);
+    
+    let parsed = json.parse(json_str);
+    print("Parsed name: " + parsed["name"]);
+    
+    // Time Demo
+    print("\n--- Time Demo ---");
+    let now = time.now();
+    print("Current timestamp: " + now);
+    
+    let formatted = time.format(now, "%Y-%m-%d %H:%M:%S");
+    print("Formatted time: " + formatted);
+    
+    let year = time.year(now);
+    let month = time.month(now);
+    let day = time.day(now);
+    print("Date: " + year + "-" + month + "-" + day);
+    
+    // HTTP Demo (commented out - requires internet)
+    print("\n--- HTTP Demo ---");
+    /*
+    let response = http.get("https://api.github.com/users/octocat");
+    if (response != null) {
+        let user_data = json.parse(response);
+        print("GitHub user: " + user_data["login"]);
+    }
+    */
+    
+    // High-level file operations
+    print("\n--- High-level File Operations ---");
+    let test_data = {"message": "Hello JSON!", "timestamp": now};
+    
+    // Write JSON to file
+    file.write("data.json", json.stringify(test_data));
+    
+    // Read JSON from file
+    let loaded_data = json.parse(file.read("data.json"));
+    print("Loaded message: " + loaded_data["message"]);
+    
+    // Read lines from file
+    file.write("lines.txt", "Line 1\nLine 2\nLine 3");
+    let lines = file.readlines("lines.txt");
+    print("Number of lines: " + len(lines));
+    
+    for (line in lines) {
+        print("Line: " + line);
+    }
+    
+    // Cleanup
+    file.delete("test.txt");
+    file.delete("data.json");
+    file.delete("lines.txt");
+    
+    print("\n=== Demo Complete ===");
+}
+
+main();
