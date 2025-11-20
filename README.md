@@ -1275,25 +1275,6 @@ python tools/run_benchmarks.py
 - **Documentation**: Examples, tutorials, API documentation
 - **Testing**: Property-based tests, fuzzing, benchmarks
 
-## Roadmap
-
-### Version 1.1 (Q2 2024)
-- **Enhanced pattern matching** with more complex patterns
-- **Improved JIT compiler** with better optimization passes
-- **Package registry** with centralized package distribution
-- **WebAssembly target** for browser execution
-
-### Version 1.2 (Q3 2024)
-- **Gradual typing** with optional static analysis
-- **Coroutines** and advanced async programming
-- **Foreign function interface** improvements
-- **IDE plugins** for IntelliJ IDEA and Vim
-
-### Version 2.0 (Q4 2024)
-- **Self-hosting compiler** written in Rubolt
-- **Advanced type system** with dependent types
-- **Distributed computing** support
-- **Mobile platform** support (iOS, Android)
 
 ## Community
 
