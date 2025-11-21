@@ -1,0 +1,196 @@
+%YAML 1.2
+---
+# Sublime Text syntax definition for Rubolt
+name: Rubolt
+file_extensions:
+  - rbo
+scope: source.rubolt
+
+variables:
+  identifier: '[a-zA-Z_][a-zA-Z0-9_]*'
+  type_identifier: '[A-Z][a-zA-Z0-9_]*'
+
+contexts:
+  main:
+    - include: comments
+    - include: strings
+    - include: numbers
+    - include: keywords
+    - include: types
+    - include: operators
+    - include: functions
+    - include: classes
+    - include: attributes
+    - include: punctuation
+
+  comments:
+    - match: '//'
+      scope: punctuation.definition.comment.rubolt
+      push:
+        - meta_scope: comment.line.double-slash.rubolt
+        - match: $
+          pop: true
+    
+    - match: '#'
+      scope: punctuation.definition.comment.rubolt
+      push:
+        - meta_scope: comment.line.hash.rubolt
+        - match: $
+          pop: true
+    
+    - match: '/\*'
+      scope: punctuation.definition.comment.begin.rubolt
+      push:
+        - meta_scope: comment.block.rubolt
+        - match: '\*/'
+          scope: punctuation.definition.comment.end.rubolt
+          pop: true
+
+  strings:
+    - match: '"'
+      scope: punctuation.definition.string.begin.rubolt
+      push:
+        - meta_scope: string.quoted.double.rubolt
+        - match: '\\.'
+          scope: constant.character.escape.rubolt
+        - match: '\$\{[^}]*\}'
+          scope: variable.other.interpolation.rubolt
+        - match: '"'
+          scope: punctuation.definition.string.end.rubolt
+          pop: true
+    
+    - match: "'"
+      scope: punctuation.definition.string.begin.rubolt
+      push:
+        - meta_scope: string.quoted.single.rubolt
+        - match: '\\.'
+          scope: constant.character.escape.rubolt
+        - match: "'"
+          scope: punctuation.definition.string.end.rubolt
+          pop: true
+
+  numbers:
+    - match: '\b0x[0-9a-fA-F]+\b'
+      scope: constant.numeric.hex.rubolt
+    - match: '\b0b[01]+\b'
+      scope: constant.numeric.binary.rubolt
+    - match: '\b0o[0-7]+\b'
+      scope: constant.numeric.octal.rubolt
+    - match: '\b\d+(\.\d+)?([eE][+-]?\d+)?\b'
+      scope: constant.numeric.decimal.rubolt
+
+  keywords:
+    - match: '\b(def|class|enum|type|import|export|let|const)\b'
+      scope: keyword.declaration.rubolt
+    
+    - match: '\b(if|else|match|case|when|while|for|in|break|continue)\b'
+      scope: keyword.control.rubolt
+    
+    - match: '\b(return|throw|try|catch|finally)\b'
+      scope: keyword.control.flow.rubolt
+    
+    - match: '\b(async|await|yield)\b'
+      scope: keyword.control.async.rubolt
+    
+    - match: '\b(and|or|not)\b'
+      scope: keyword.operator.logical.rubolt
+    
+    - match: '\b(null|true|false)\b'
+      scope: constant.language.rubolt
+    
+    - match: '\b(this|super)\b'
+      scope: variable.language.rubolt
+    
+    - match: '\b(public|private|protected|static|abstract)\b'
+      scope: storage.modifier.rubolt
+
+  types:
+    - match: '\b(number|string|bool|void|any|null|function)\b'
+      scope: storage.type.primitive.rubolt
+    
+    - match: '\b(Array|List|Dict|Set|Tuple|Optional|Result|Promise)\b'
+      scope: storage.type.builtin.rubolt
+    
+    - match: '{{type_identifier}}'
+      scope: storage.type.rubolt
+
+  operators:
+    - match: '\+\+|--|(\+|\-|\*|\/|\%|\*\*)='
+      scope: keyword.operator.assignment.augmented.rubolt
+    
+    - match: '='
+      scope: keyword.operator.assignment.rubolt
+    
+    - match: '==|!=|<=|>=|<|>'
+      scope: keyword.operator.comparison.rubolt
+    
+    - match: '&&|\|\||!'
+      scope: keyword.operator.logical.rubolt
+    
+    - match: '&|\||\^|~|<<|>>'
+      scope: keyword.operator.bitwise.rubolt
+    
+    - match: '\+|\-|\*|\/|\%|\*\*'
+      scope: keyword.operator.arithmetic.rubolt
+    
+    - match: '\?|:'
+      scope: keyword.operator.ternary.rubolt
+    
+    - match: '->'
+      scope: keyword.operator.arrow.rubolt
+    
+    - match: '=>'
+      scope: keyword.operator.fat-arrow.rubolt
+    
+    - match: '\?\?'
+      scope: keyword.operator.null-coalescing.rubolt
+
+  functions:
+    - match: '\b(def)\s+({{identifier}})'
+      captures:
+        1: keyword.declaration.function.rubolt
+        2: entity.name.function.rubolt
+    
+    - match: '\b(print|len|type|str|int|float|bool|assert|panic|unreachable)\b'
+      scope: support.function.builtin.rubolt
+    
+    - match: '\b(min|max|abs|round|floor|ceil)\b'
+      scope: support.function.math.rubolt
+    
+    - match: '\b(map|filter|reduce|forEach|find|some|every)\b'
+      scope: support.function.array.rubolt
+
+  classes:
+    - match: '\b(class)\s+({{type_identifier}})'
+      captures:
+        1: keyword.declaration.class.rubolt
+        2: entity.name.class.rubolt
+    
+    - match: '\b(enum)\s+({{type_identifier}})'
+      captures:
+        1: keyword.declaration.enum.rubolt
+        2: entity.name.enum.rubolt
+
+  attributes:
+    - match: '@{{identifier}}'
+      scope: entity.name.tag.attribute.rubolt
+
+  punctuation:
+    - match: '\('
+      scope: punctuation.section.group.begin.rubolt
+    - match: '\)'
+      scope: punctuation.section.group.end.rubolt
+    - match: '\['
+      scope: punctuation.section.brackets.begin.rubolt
+    - match: '\]'
+      scope: punctuation.section.brackets.end.rubolt
+    - match: '\{'
+      scope: punctuation.section.braces.begin.rubolt
+    - match: '\}'
+      scope: punctuation.section.braces.end.rubolt
+    - match: ','
+      scope: punctuation.separator.comma.rubolt
+    - match: ';'
+      scope: punctuation.terminator.statement.rubolt
+    - match: '\.'
+      scope: punctuation.accessor.dot.rubolt

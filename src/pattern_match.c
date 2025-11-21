@@ -1,422 +1,275 @@
 #include "pattern_match.h"
 #include "interpreter.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <regex.h>
 
-Pattern* pattern_literal(Value value) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_LITERAL;
-    pattern->as.literal = value;
-    return pattern;
-}
-
-Pattern* pattern_identifier(const char* name) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_IDENTIFIER;
-    pattern->as.identifier = strdup(name);
-    return pattern;
-}
-
-Pattern* pattern_wildcard() {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_WILDCARD;
-    return pattern;
-}
-
-Pattern* pattern_tuple(Pattern** patterns, size_t count) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_TUPLE;
-    pattern->as.tuple.patterns = patterns;
-    pattern->as.tuple.count = count;
-    return pattern;
-}
-
-Pattern* pattern_list(Pattern** patterns, size_t count, bool has_rest, const char* rest_name) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_LIST;
-    pattern->as.list.patterns = patterns;
-    pattern->as.list.count = count;
-    pattern->as.list.has_rest = has_rest;
-    pattern->as.list.rest_name = rest_name ? strdup(rest_name) : NULL;
-    return pattern;
-}
-
-Pattern* pattern_object(char** keys, Pattern** patterns, size_t count, bool has_rest) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_OBJECT;
-    pattern->as.object.keys = keys;
-    pattern->as.object.patterns = patterns;
-    pattern->as.object.count = count;
-    pattern->as.object.has_rest = has_rest;
-    return pattern;
-}
-
-Pattern* pattern_type(const char* type_name) {
-    Pattern* pattern = malloc(sizeof(Pattern));
-    pattern->type = PATTERN_TYPE;
-    pattern->as.type_name = strdup(type_name);
-    return pattern;
-}
-
-Pattern* pattern_guard(Pattern* pattern, Expr* guard) {
-    Pattern* guard_pattern = malloc(sizeof(Pattern));
-    guard_pattern->type = PATTERN_GUARD;
-    guard_pattern->as.guard.pattern = pattern;
-    guard_pattern->as.guard.guard = guard;
-    return guard_pattern;
-}
-
-Expr* expr_match(Expr* expr, MatchCase* cases, size_t case_count) {
-    Expr* match_expr = malloc(sizeof(Expr));
-    match_expr->type = EXPR_MATCH;
-    match_expr->as.match.expr = expr;
-    match_expr->as.match.cases = cases;
-    match_expr->as.match.case_count = case_count;
-    return match_expr;
-}
-
-bool values_equal(Value a, Value b) {
-    if (a.type != b.type) return false;
-    
-    switch (a.type) {
-        case VAL_NULL: return true;
-        case VAL_BOOL: return a.as.boolean == b.as.boolean;
-        case VAL_NUMBER: return a.as.number == b.as.number;
-        case VAL_STRING: return strcmp(a.as.string, b.as.string) == 0;
-        default: return false;
-    }
-}
-
-typedef struct PatternMatchContext {
-    Environment* env;
-    Environment* temp_bindings;
-    bool strict_mode;
-    size_t recursion_depth;
-    size_t max_recursion_depth;
-} PatternMatchContext;
-
-typedef struct TypeConstraint {
-    char* constraint_name;
-    bool (*validator)(Value value, void* context);
-    void* context;
-} TypeConstraint;
-
-static TypeConstraint type_constraints[] = {
-    {"NonEmpty", validate_non_empty, NULL},
-    {"Positive", validate_positive_number, NULL},
-    {"NonNull", validate_non_null, NULL},
-    {"ValidEmail", validate_email_format, NULL},
-    {"InRange", validate_number_range, NULL},
-    {"MinLength", validate_min_length, NULL},
-    {"MaxLength", validate_max_length, NULL}
-};
-
-bool validate_non_empty(Value value, void* context) {
-    switch (value.type) {
-        case VAL_STRING:
-            return strlen(value.as.string) > 0;
-        case VAL_LIST:
-            return value.as.list.count > 0;
-        case VAL_DICT:
-            return value.as.dict.count > 0;
+// Pattern matching engine
+bool pattern_match(Pattern *pattern, Value value, Environment *env) {
+    switch (pattern->type) {
+        case PATTERN_LITERAL:
+            return match_literal_pattern(&pattern->as.literal, value);
+            
+        case PATTERN_IDENTIFIER:
+            return match_identifier_pattern(&pattern->as.identifier, value, env);
+            
+        case PATTERN_WILDCARD:
+            return true; // Wildcard matches everything
+            
+        case PATTERN_TUPLE:
+            return match_tuple_pattern(&pattern->as.tuple, value, env);
+            
+        case PATTERN_ARRAY:
+            return match_array_pattern(&pattern->as.array, value, env);
+            
+        case PATTERN_OBJECT:
+            return match_object_pattern(&pattern->as.object, value, env);
+            
+        case PATTERN_TYPE:
+            return match_type_pattern(&pattern->as.type, value);
+            
+        case PATTERN_GUARD:
+            return match_guard_pattern(&pattern->as.guard, value, env);
+            
+        case PATTERN_OR:
+            return match_or_pattern(&pattern->as.or_pattern, value, env);
+            
+        case PATTERN_RANGE:
+            return match_range_pattern(&pattern->as.range, value);
+            
+        case PATTERN_REGEX:
+            return match_regex_pattern(&pattern->as.regex, value);
+            
+        case PATTERN_CONSTRUCTOR:
+            return match_constructor_pattern(&pattern->as.constructor, value, env);
+            
         default:
             return false;
     }
 }
 
-bool validate_positive_number(Value value, void* context) {
-    return value.type == VAL_NUMBER && value.as.number > 0;
-}
-
-bool validate_non_null(Value value, void* context) {
-    return value.type != VAL_NULL;
-}
-
-bool validate_email_format(Value value, void* context) {
-    if (value.type != VAL_STRING) return false;
-    
-    const char* email = value.as.string;
-    const char* at_pos = strchr(email, '@');
-    if (!at_pos) return false;
-    
-    const char* dot_pos = strrchr(at_pos, '.');
-    if (!dot_pos || dot_pos <= at_pos + 1) return false;
-    
-    return strlen(dot_pos + 1) >= 2;
-}
-
-bool validate_number_range(Value value, void* context) {
-    if (value.type != VAL_NUMBER) return false;
-    
-    double* range = (double*)context;
-    return value.as.number >= range[0] && value.as.number <= range[1];
-}
-
-bool validate_min_length(Value value, void* context) {
-    size_t min_len = *(size_t*)context;
-    
-    switch (value.type) {
-        case VAL_STRING:
-            return strlen(value.as.string) >= min_len;
-        case VAL_LIST:
-            return value.as.list.count >= min_len;
+bool match_literal_pattern(LiteralPattern *pattern, Value value) {
+    switch (pattern->value_type) {
+        case VALUE_NUMBER:
+            return value.type == VALUE_NUMBER && 
+                   value.as.number == pattern->as.number;
+                   
+        case VALUE_STRING:
+            return value.type == VALUE_STRING && 
+                   strcmp(value.as.string, pattern->as.string) == 0;
+                   
+        case VALUE_BOOL:
+            return value.type == VALUE_BOOL && 
+                   value.as.boolean == pattern->as.boolean;
+                   
+        case VALUE_NULL:
+            return value.type == VALUE_NULL;
+            
         default:
             return false;
     }
 }
 
-bool validate_max_length(Value value, void* context) {
-    size_t max_len = *(size_t*)context;
+bool match_identifier_pattern(IdentifierPattern *pattern, Value value, Environment *env) {
+    // Bind the value to the identifier in the environment
+    environment_define(env, pattern->name, value);
     
-    switch (value.type) {
-        case VAL_STRING:
-            return strlen(value.as.string) <= max_len;
-        case VAL_LIST:
-            return value.as.list.count <= max_len;
-        default:
-            return false;
+    // Check type constraint if present
+    if (pattern->type_constraint) {
+        return check_type_constraint(value, pattern->type_constraint);
     }
-}
-
-bool validate_type_constraints(Value value, const char* type_name) {
-    for (size_t i = 0; i < sizeof(type_constraints) / sizeof(TypeConstraint); i++) {
-        if (strstr(type_name, type_constraints[i].constraint_name)) {
-            if (!type_constraints[i].validator(value, type_constraints[i].context)) {
-                return false;
-            }
-        }
-    }
+    
     return true;
 }
 
-bool pattern_matches_complex(Pattern* pattern, Value value, PatternMatchContext* ctx) {
-    if (ctx->recursion_depth >= ctx->max_recursion_depth) {
-        runtime_panic_with_type(PANIC_STACK_OVERFLOW, 
-                               "Pattern matching recursion depth exceeded: %zu", 
-                               ctx->recursion_depth);
+bool match_tuple_pattern(TuplePattern *pattern, Value value, Environment *env) {
+    if (value.type != VALUE_TUPLE) {
         return false;
     }
     
-    ctx->recursion_depth++;
-    bool result = false;
+    Tuple *tuple = (Tuple *)value.as.object;
     
-    switch (pattern->type) {
-        case PATTERN_LITERAL: {
-            result = values_equal_strict(pattern->as.literal, value, ctx->strict_mode);
-            break;
-        }
-        
-        case PATTERN_IDENTIFIER:
-        case PATTERN_WILDCARD:
-            result = true;
-            break;
-            
-        case PATTERN_TUPLE: {
-            if (value.type != VAL_TUPLE) {
-                result = false;
-                break;
-            }
-            
-            if (pattern->as.tuple.count != value.as.tuple.count) {
-                result = false;
-                break;
-            }
-            
-            result = true;
-            for (size_t i = 0; i < pattern->as.tuple.count; i++) {
-                if (!pattern_matches_complex(pattern->as.tuple.patterns[i], 
-                                           value.as.tuple.elements[i], ctx)) {
-                    result = false;
-                    break;
-                }
-            }
-            break;
-        }
-        
-        case PATTERN_LIST: {
-            if (value.type != VAL_LIST) {
-                result = false;
-                break;
-            }
-            
-            size_t list_size = value.as.list.count;
-            size_t pattern_size = pattern->as.list.count;
-            
-            if (pattern->as.list.has_rest) {
-                if (list_size < pattern_size) {
-                    result = false;
-                    break;
-                }
-            } else {
-                if (list_size != pattern_size) {
-                    result = false;
-                    break;
-                }
-            }
-            
-            result = true;
-            for (size_t i = 0; i < pattern_size && i < list_size; i++) {
-                if (!pattern_matches_complex(pattern->as.list.patterns[i],
-                                           value.as.list.elements[i], ctx)) {
-                    result = false;
-                    break;
-                }
-            }
-            
-            // Validate rest elements if present
-            if (result && pattern->as.list.has_rest && list_size > pattern_size) {
-                for (size_t i = pattern_size; i < list_size; i++) {
-                    // Rest elements must be valid for the pattern context
-                    if (ctx->strict_mode && !validate_value_in_context(value.as.list.elements[i], ctx)) {
-                        result = false;
-                        break;
-                    }
-                }
-            }
-            break;
-        }
-        
-        case PATTERN_OBJECT: {
-            if (value.type != VAL_DICT) {
-                result = false;
-                break;
-            }
-            
-            result = true;
-            for (size_t i = 0; i < pattern->as.object.count; i++) {
-                Value* field = dict_get(&value, pattern->as.object.keys[i]);
-                if (!field) {
-                    if (ctx->strict_mode) {
-                        result = false;
-                        break;
-                    }
-                    continue;
-                }
-                
-                if (!pattern_matches_complex(pattern->as.object.patterns[i], *field, ctx)) {
-                    result = false;
-                    break;
-                }
-            }
-            
-            // In strict mode, check for extra fields
-            if (result && ctx->strict_mode && !pattern->as.object.has_rest) {
-                size_t dict_size = dict_size(&value);
-                if (dict_size > pattern->as.object.count) {
-                    result = false;
-                }
-            }
-            break;
-        }
-        
-        case PATTERN_TYPE: {
-            const char* value_type = value_type_name(value);
-            result = (strcmp(pattern->as.type_name, value_type) == 0 ||
-                     type_is_subtype(value_type, pattern->as.type_name));
-            
-            if (result) {
-                result = validate_type_constraints(value, pattern->as.type_name);
-            }
-            break;
-        }
-        
-        case PATTERN_GUARD: {
-            // First check if the base pattern matches
-            if (!pattern_matches_complex(pattern->as.guard.pattern, value, ctx)) {
-                result = false;
-                break;
-            }
-            
-            // Create temporary environment for guard evaluation
-            Environment guard_env;
-            environment_init(&guard_env);
-            environment_set_parent(&guard_env, ctx->env);
-            
-            // Bind variables from the pattern
-            pattern_bind_complex(pattern->as.guard.pattern, value, &guard_env, ctx);
-            
-            // Evaluate guard expression
-            Value guard_result = evaluate_expr_safe(pattern->as.guard.guard, &guard_env);
-            result = value_is_truthy(guard_result);
-            
-            environment_free(&guard_env);
-            break;
-        }
-        
-        default:
-            runtime_panic_with_type(PANIC_PATTERN_MATCH_FAILED,
-                                   "Unknown pattern type: %d", pattern->type);
-            result = false;
-            break;
-    }
-    
-    ctx->recursion_depth--;
-    return result;
-}
-
-bool pattern_matches(Pattern* pattern, Value value, Environment* env) {
-    PatternMatchContext ctx = {
-        .env = env,
-        .temp_bindings = NULL,
-        .strict_mode = false,
-        .recursion_depth = 0,
-        .max_recursion_depth = 1000
-    };
-    
-    return pattern_matches_complex(pattern, value, &ctx);
-}
-
-bool values_equal_strict(Value a, Value b, bool strict) {
-    if (a.type != b.type) {
-        if (!strict) {
-            // Allow some type coercion in non-strict mode
-            if ((a.type == VAL_NUMBER && b.type == VAL_STRING) ||
-                (a.type == VAL_STRING && b.type == VAL_NUMBER)) {
-                return false; // Would implement coercion logic here
-            }
-        }
+    // Check element count
+    if (tuple->element_count != pattern->element_count) {
         return false;
     }
     
-    switch (a.type) {
-        case VAL_NULL:
-            return true;
-        case VAL_BOOL:
-            return a.as.boolean == b.as.boolean;
-        case VAL_NUMBER:
-            if (strict) {
-                return a.as.number == b.as.number;
-            } else {
-                return fabs(a.as.number - b.as.number) < 1e-10;
+    // Match each element
+    for (size_t i = 0; i < pattern->element_count; i++) {
+        if (!pattern_match(pattern->elements[i], tuple->elements[i], env)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool match_array_pattern(ArrayPattern *pattern, Value value, Environment *env) {
+    if (value.type != VALUE_ARRAY) {
+        return false;
+    }
+    
+    Array *array = (Array *)value.as.object;
+    
+    // Handle rest pattern
+    if (pattern->has_rest) {
+        if (array->length < pattern->element_count - 1) {
+            return false;
+        }
+        
+        // Match fixed elements
+        for (size_t i = 0; i < pattern->rest_index; i++) {
+            if (!pattern_match(pattern->elements[i], array->elements[i], env)) {
+                return false;
             }
-        case VAL_STRING:
-            return strcmp(a.as.string, b.as.string) == 0;
-        case VAL_LIST:
-            if (a.as.list.count != b.as.list.count) return false;
-            for (size_t i = 0; i < a.as.list.count; i++) {
-                if (!values_equal_strict(a.as.list.elements[i], b.as.list.elements[i], strict)) {
+        }
+        
+        // Create rest array
+        size_t rest_start = pattern->rest_index;
+        size_t rest_length = array->length - (pattern->element_count - 1);
+        
+        Array *rest_array = create_array(rest_length);
+        for (size_t i = 0; i < rest_length; i++) {
+            rest_array->elements[i] = array->elements[rest_start + i];
+        }
+        
+        // Bind rest array to identifier
+        environment_define(env, pattern->rest_name, value_object(rest_array));
+        
+        // Match remaining elements
+        for (size_t i = pattern->rest_index + 1; i < pattern->element_count; i++) {
+            size_t array_index = array->length - (pattern->element_count - i);
+            if (!pattern_match(pattern->elements[i], array->elements[array_index], env)) {
+                return false;
+            }
+        }
+        
+        return true;
+    } else {
+        // Exact match
+        if (array->length != pattern->element_count) {
+            return false;
+        }
+        
+        for (size_t i = 0; i < pattern->element_count; i++) {
+            if (!pattern_match(pattern->elements[i], array->elements[i], env)) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+}
+
+bool match_object_pattern(ObjectPattern *pattern, Value value, Environment *env) {
+    if (value.type != VALUE_OBJECT) {
+        return false;
+    }
+    
+    Object *object = (Object *)value.as.object;
+    
+    // Match each property pattern
+    for (size_t i = 0; i < pattern->property_count; i++) {
+        PropertyPattern *prop_pattern = &pattern->properties[i];
+        
+        // Find property in object
+        Value prop_value = object_get_property(object, prop_pattern->key);
+        
+        if (prop_value.type == VALUE_NULL && prop_pattern->required) {
+            return false; // Required property not found
+        }
+        
+        if (prop_value.type != VALUE_NULL) {
+            if (prop_pattern->pattern) {
+                // Match against nested pattern
+                if (!pattern_match(prop_pattern->pattern, prop_value, env)) {
                     return false;
                 }
+            } else if (prop_pattern->identifier) {
+                // Bind to identifier
+                environment_define(env, prop_pattern->identifier, prop_value);
             }
-            return true;
-        case VAL_DICT:
-            return dict_equals(&a, &b, strict);
+        }
+    }
+    
+    // Handle rest pattern
+    if (pattern->has_rest) {
+        Object *rest_object = create_object();
+        
+        // Add all properties not matched by patterns
+        for (size_t i = 0; i < object->property_count; i++) {
+            Property *prop = &object->properties[i];
+            bool matched = false;
+            
+            for (size_t j = 0; j < pattern->property_count; j++) {
+                if (strcmp(prop->key, pattern->properties[j].key) == 0) {
+                    matched = true;
+                    break;
+                }
+            }
+            
+            if (!matched) {
+                object_set_property(rest_object, prop->key, prop->value);
+            }
+        }
+        
+        environment_define(env, pattern->rest_name, value_object(rest_object));
+    }
+    
+    return true;
+}
+
+bool match_type_pattern(TypePattern *pattern, Value value) {
+    switch (pattern->type) {
+        case TYPE_NUMBER:
+            return value.type == VALUE_NUMBER;
+            
+        case TYPE_STRING:
+            return value.type == VALUE_STRING;
+            
+        case TYPE_BOOL:
+            return value.type == VALUE_BOOL;
+            
+        case TYPE_NULL:
+            return value.type == VALUE_NULL;
+            
+        case TYPE_ARRAY:
+            return value.type == VALUE_ARRAY;
+            
+        case TYPE_OBJECT:
+            return value.type == VALUE_OBJECT;
+            
+        case TYPE_FUNCTION:
+            return value.type == VALUE_FUNCTION;
+            
+        case TYPE_CUSTOM:
+            return check_custom_type(value, pattern->type_name);
+            
         default:
             return false;
     }
 }
 
-bool type_is_subtype(const char* subtype, const char* supertype) {
-    // Check type hierarchy
-    TypeHierarchy* type_info = find_type_hierarchy(subtype);
-    if (!type_info) return false;
+bool match_guard_pattern(GuardPattern *pattern, Value value, Environment *env) {
+    // First match the base pattern
+    if (!pattern_match(pattern->base_pattern, value, env)) {
+        return false;
+    }
     
-    for (size_t i = 0; i < type_info->parent_count; i++) {
-        if (strcmp(type_info->parent_types[i], supertype) == 0) {
-            return true;
-        }
-        // Recursive check for inheritance chains
-        if (type_is_subtype(type_info->parent_types[i], supertype)) {
+    // Then evaluate the guard condition
+    Value guard_result = evaluate_expression(current_interpreter, pattern->guard_expr);
+    return is_truthy(guard_result);
+}
+
+bool match_or_pattern(OrPattern *pattern, Value value, Environment *env) {
+    // Try each alternative pattern
+    for (size_t i = 0; i < pattern->pattern_count; i++) {
+        Environment *temp_env = environment_create(env);
+        
+        if (pattern_match(pattern->patterns[i], value, temp_env)) {
+            // Copy bindings from temp environment to main environment
+            copy_environment_bindings(temp_env, env);
             return true;
         }
     }
@@ -424,160 +277,639 @@ bool type_is_subtype(const char* subtype, const char* supertype) {
     return false;
 }
 
-bool validate_value_in_context(Value value, PatternMatchContext* ctx) {
-    // Validate value based on context constraints
-    if (ctx->strict_mode) {
-        // Perform additional validation in strict mode
-        switch (value.type) {
-            case VAL_STRING:
-                // Check for valid UTF-8, no null bytes, etc.
-                return validate_string_integrity(value.as.string);
-            case VAL_NUMBER:
-                // Check for NaN, infinity, etc.
-                return isfinite(value.as.number);
-            case VAL_LIST:
-                // Recursively validate list elements
-                for (size_t i = 0; i < value.as.list.count; i++) {
-                    if (!validate_value_in_context(value.as.list.elements[i], ctx)) {
-                        return false;
-                    }
-                }
-                return true;
-            default:
-                return true;
-        }
+bool match_range_pattern(RangePattern *pattern, Value value) {
+    if (value.type != VALUE_NUMBER) {
+        return false;
     }
-    return true;
+    
+    double num = value.as.number;
+    
+    if (pattern->inclusive) {
+        return num >= pattern->start && num <= pattern->end;
+    } else {
+        return num >= pattern->start && num < pattern->end;
+    }
 }
 
-bool validate_string_integrity(const char* str) {
-    if (!str) return false;
-    
-    // Check for null bytes in the middle of string
-    size_t len = strlen(str);
-    for (size_t i = 0; i < len; i++) {
-        if (str[i] == '\0') return false;
+bool match_regex_pattern(RegexPattern *pattern, Value value) {
+    if (value.type != VALUE_STRING) {
+        return false;
     }
     
-    // Basic UTF-8 validation
-    const unsigned char* bytes = (const unsigned char*)str;
-    for (size_t i = 0; i < len; i++) {
-        if (bytes[i] > 127) {
-            // Multi-byte UTF-8 character validation
-            if ((bytes[i] & 0xE0) == 0xC0) {
-                // 2-byte sequence
-                if (i + 1 >= len || (bytes[i + 1] & 0xC0) != 0x80) return false;
-                i += 1;
-            } else if ((bytes[i] & 0xF0) == 0xE0) {
-                // 3-byte sequence
-                if (i + 2 >= len || (bytes[i + 1] & 0xC0) != 0x80 || (bytes[i + 2] & 0xC0) != 0x80) return false;
-                i += 2;
-            } else if ((bytes[i] & 0xF8) == 0xF0) {
-                // 4-byte sequence
-                if (i + 3 >= len || (bytes[i + 1] & 0xC0) != 0x80 || 
-                    (bytes[i + 2] & 0xC0) != 0x80 || (bytes[i + 3] & 0xC0) != 0x80) return false;
-                i += 3;
-            } else {
-                return false; // Invalid UTF-8
+    regex_t regex;
+    int result = regcomp(&regex, pattern->pattern, pattern->flags);
+    
+    if (result != 0) {
+        return false; // Invalid regex
+    }
+    
+    result = regexec(&regex, value.as.string, 0, NULL, 0);
+    regfree(&regex);
+    
+    return result == 0;
+}
+
+bool match_constructor_pattern(ConstructorPattern *pattern, Value value, Environment *env) {
+    if (value.type != VALUE_OBJECT) {
+        return false;
+    }
+    
+    Object *object = (Object *)value.as.object;
+    
+    // Check if object is instance of the constructor
+    if (!is_instance_of(object, pattern->constructor_name)) {
+        return false;
+    }
+    
+    // Match constructor arguments if present
+    if (pattern->arg_patterns) {
+        // Extract constructor arguments from object
+        Value *args = extract_constructor_args(object, pattern->constructor_name);
+        
+        for (size_t i = 0; i < pattern->arg_count; i++) {
+            if (!pattern_match(pattern->arg_patterns[i], args[i], env)) {
+                free(args);
+                return false;
             }
         }
+        
+        free(args);
     }
     
     return true;
 }
 
-void pattern_bind(Pattern* pattern, Value value, Environment* env) {
+// Advanced pattern matching features
+bool match_when_pattern(WhenPattern *pattern, Value value, Environment *env) {
+    // Match base pattern first
+    if (!pattern_match(pattern->base_pattern, value, env)) {
+        return false;
+    }
+    
+    // Evaluate when conditions
+    for (size_t i = 0; i < pattern->condition_count; i++) {
+        Value condition_result = evaluate_expression(current_interpreter, pattern->conditions[i]);
+        if (!is_truthy(condition_result)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool match_slice_pattern(SlicePattern *pattern, Value value, Environment *env) {
+    if (value.type != VALUE_ARRAY && value.type != VALUE_STRING) {
+        return false;
+    }
+    
+    size_t length;
+    if (value.type == VALUE_ARRAY) {
+        Array *array = (Array *)value.as.object;
+        length = array->length;
+    } else {
+        length = strlen(value.as.string);
+    }
+    
+    // Calculate slice bounds
+    size_t start = pattern->start >= 0 ? pattern->start : length + pattern->start;
+    size_t end = pattern->end >= 0 ? pattern->end : length + pattern->end;
+    
+    if (start >= length || end > length || start >= end) {
+        return false;
+    }
+    
+    // Extract slice
+    Value slice_value;
+    if (value.type == VALUE_ARRAY) {
+        Array *array = (Array *)value.as.object;
+        Array *slice_array = create_array(end - start);
+        
+        for (size_t i = start; i < end; i++) {
+            slice_array->elements[i - start] = array->elements[i];
+        }
+        
+        slice_value = value_object(slice_array);
+    } else {
+        char *slice_str = malloc(end - start + 1);
+        strncpy(slice_str, value.as.string + start, end - start);
+        slice_str[end - start] = '\0';
+        slice_value = value_string(slice_str);
+    }
+    
+    // Match against pattern
+    return pattern_match(pattern->pattern, slice_value, env);
+}
+
+bool match_nested_pattern(NestedPattern *pattern, Value value, Environment *env) {
+    // Create nested environment
+    Environment *nested_env = environment_create(env);
+    
+    // Match outer pattern
+    if (!pattern_match(pattern->outer_pattern, value, nested_env)) {
+        return false;
+    }
+    
+    // Get bound value from outer pattern
+    Value bound_value = environment_get(nested_env, pattern->binding_name);
+    
+    // Match inner pattern against bound value
+    bool result = pattern_match(pattern->inner_pattern, bound_value, nested_env);
+    
+    if (result) {
+        // Copy bindings to parent environment
+        copy_environment_bindings(nested_env, env);
+    }
+    
+    return result;
+}
+
+// Pattern compilation and optimization
+CompiledPattern *compile_pattern(Pattern *pattern) {
+    CompiledPattern *compiled = malloc(sizeof(CompiledPattern));
+    compiled->original_pattern = pattern;
+    compiled->optimization_level = 0;
+    compiled->match_function = NULL;
+    compiled->fast_path = NULL;
+    
+    // Analyze pattern for optimizations
+    analyze_pattern_complexity(pattern, compiled);
+    
+    // Generate optimized matching code
+    if (compiled->optimization_level > 0) {
+        generate_fast_matcher(pattern, compiled);
+    }
+    
+    return compiled;
+}
+
+void analyze_pattern_complexity(Pattern *pattern, CompiledPattern *compiled) {
     switch (pattern->type) {
+        case PATTERN_LITERAL:
+        case PATTERN_WILDCARD:
+        case PATTERN_TYPE:
+            compiled->optimization_level = 3; // Highly optimizable
+            break;
+            
         case PATTERN_IDENTIFIER:
-            environment_define(env, pattern->as.identifier, value);
+            compiled->optimization_level = 2; // Moderately optimizable
             break;
             
         case PATTERN_TUPLE:
-            for (size_t i = 0; i < pattern->as.tuple.count; i++) {
-                pattern_bind(pattern->as.tuple.patterns[i],
-                           value.as.tuple.elements[i], env);
-            }
-            break;
-            
-        case PATTERN_LIST:
-            for (size_t i = 0; i < pattern->as.list.count; i++) {
-                pattern_bind(pattern->as.list.patterns[i],
-                           value.as.list.elements[i], env);
-            }
-            
-            if (pattern->as.list.has_rest) {
-                // Bind rest elements to rest variable
-                Value rest_list = value_list();
-                for (size_t i = pattern->as.list.count; i < value.as.list.count; i++) {
-                    list_append(&rest_list, value.as.list.elements[i]);
-                }
-                environment_define(env, pattern->as.list.rest_name, rest_list);
-            }
-            break;
-            
+        case PATTERN_ARRAY:
         case PATTERN_OBJECT:
-            for (size_t i = 0; i < pattern->as.object.count; i++) {
-                Value* field = dict_get(&value, pattern->as.object.keys[i]);
-                if (field) {
-                    pattern_bind(pattern->as.object.patterns[i], *field, env);
-                }
-            }
+            compiled->optimization_level = 1; // Somewhat optimizable
             break;
             
         case PATTERN_GUARD:
-            pattern_bind(pattern->as.guard.pattern, value, env);
+        case PATTERN_OR:
+        case PATTERN_REGEX:
+            compiled->optimization_level = 0; // Not easily optimizable
             break;
             
         default:
+            compiled->optimization_level = 0;
             break;
     }
 }
 
-void pattern_free(Pattern* pattern) {
-    if (!pattern) return;
-    
+void generate_fast_matcher(Pattern *pattern, CompiledPattern *compiled) {
     switch (pattern->type) {
         case PATTERN_LITERAL:
-            value_free(&pattern->as.literal);
-            break;
-            
-        case PATTERN_IDENTIFIER:
-            free(pattern->as.identifier);
-            break;
-            
-        case PATTERN_TUPLE:
-            for (size_t i = 0; i < pattern->as.tuple.count; i++) {
-                pattern_free(pattern->as.tuple.patterns[i]);
-            }
-            free(pattern->as.tuple.patterns);
-            break;
-            
-        case PATTERN_LIST:
-            for (size_t i = 0; i < pattern->as.list.count; i++) {
-                pattern_free(pattern->as.list.patterns[i]);
-            }
-            free(pattern->as.list.patterns);
-            free(pattern->as.list.rest_name);
-            break;
-            
-        case PATTERN_OBJECT:
-            for (size_t i = 0; i < pattern->as.object.count; i++) {
-                free(pattern->as.object.keys[i]);
-                pattern_free(pattern->as.object.patterns[i]);
-            }
-            free(pattern->as.object.keys);
-            free(pattern->as.object.patterns);
+            compiled->fast_path = generate_literal_matcher(&pattern->as.literal);
             break;
             
         case PATTERN_TYPE:
-            free(pattern->as.type_name);
+            compiled->fast_path = generate_type_matcher(&pattern->as.type);
             break;
             
-        case PATTERN_GUARD:
-            pattern_free(pattern->as.guard.pattern);
-            expr_free(pattern->as.guard.guard);
+        case PATTERN_IDENTIFIER:
+            compiled->fast_path = generate_identifier_matcher(&pattern->as.identifier);
+            break;
+            
+        default:
+            // Fall back to general matcher
+            compiled->fast_path = NULL;
             break;
     }
+}
+
+FastMatcher *generate_literal_matcher(LiteralPattern *pattern) {
+    FastMatcher *matcher = malloc(sizeof(FastMatcher));
+    matcher->type = FAST_LITERAL;
+    matcher->data.literal = *pattern;
     
-    free(pattern);
+    return matcher;
+}
+
+FastMatcher *generate_type_matcher(TypePattern *pattern) {
+    FastMatcher *matcher = malloc(sizeof(FastMatcher));
+    matcher->type = FAST_TYPE;
+    matcher->data.type = *pattern;
+    
+    return matcher;
+}
+
+FastMatcher *generate_identifier_matcher(IdentifierPattern *pattern) {
+    FastMatcher *matcher = malloc(sizeof(FastMatcher));
+    matcher->type = FAST_IDENTIFIER;
+    matcher->data.identifier = *pattern;
+    
+    return matcher;
+}
+
+bool execute_fast_matcher(FastMatcher *matcher, Value value, Environment *env) {
+    switch (matcher->type) {
+        case FAST_LITERAL:
+            return match_literal_pattern(&matcher->data.literal, value);
+            
+        case FAST_TYPE:
+            return match_type_pattern(&matcher->data.type, value);
+            
+        case FAST_IDENTIFIER:
+            return match_identifier_pattern(&matcher->data.identifier, value, env);
+            
+        default:
+            return false;
+    }
+}
+
+// Pattern matching statistics and profiling
+void pattern_match_profile_start(PatternMatchProfile *profile) {
+    profile->start_time = clock();
+    profile->match_attempts++;
+}
+
+void pattern_match_profile_end(PatternMatchProfile *profile, bool matched) {
+    profile->total_time += clock() - profile->start_time;
+    
+    if (matched) {
+        profile->successful_matches++;
+    } else {
+        profile->failed_matches++;
+    }
+}
+
+void print_pattern_match_statistics(PatternMatchProfile *profile) {
+    printf("Pattern Match Statistics:\n");
+    printf("  Total attempts: %zu\n", profile->match_attempts);
+    printf("  Successful matches: %zu\n", profile->successful_matches);
+    printf("  Failed matches: %zu\n", profile->failed_matches);
+    printf("  Success rate: %.2f%%\n", 
+           (double)profile->successful_matches / profile->match_attempts * 100);
+    printf("  Average time: %.4f ms\n", 
+           (double)profile->total_time / profile->match_attempts / CLOCKS_PER_SEC * 1000);
+}
+
+// Utility functions
+bool check_type_constraint(Value value, TypeConstraint *constraint) {
+    switch (constraint->type) {
+        case CONSTRAINT_EXACT_TYPE:
+            return value.type == constraint->expected_type;
+            
+        case CONSTRAINT_NUMERIC:
+            return value.type == VALUE_NUMBER;
+            
+        case CONSTRAINT_COMPARABLE:
+            return value.type == VALUE_NUMBER || value.type == VALUE_STRING;
+            
+        case CONSTRAINT_ITERABLE:
+            return value.type == VALUE_ARRAY || value.type == VALUE_STRING;
+            
+        case CONSTRAINT_CUSTOM:
+            return check_custom_constraint(value, constraint->custom_checker);
+            
+        default:
+            return true;
+    }
+}
+
+bool check_custom_type(Value value, const char *type_name) {
+    if (value.type != VALUE_OBJECT) {
+        return false;
+    }
+    
+    Object *object = (Object *)value.as.object;
+    return strcmp(object->type_name, type_name) == 0;
+}
+
+bool is_instance_of(Object *object, const char *constructor_name) {
+    return strcmp(object->constructor_name, constructor_name) == 0;
+}
+
+Value *extract_constructor_args(Object *object, const char *constructor_name) {
+    // This would extract the original constructor arguments from the object
+    // Implementation depends on how constructor arguments are stored
+    return NULL; // Simplified for now
+}
+
+void copy_environment_bindings(Environment *source, Environment *dest) {
+    for (size_t i = 0; i < source->count; i++) {
+        environment_define(dest, source->variables[i].name, source->variables[i].value);
+    }
+}
+
+Array *create_array(size_t length) {
+    Array *array = malloc(sizeof(Array));
+    array->elements = malloc(sizeof(Value) * length);
+    array->length = length;
+    array->capacity = length;
+    
+    return array;
+}
+
+Object *create_object(void) {
+    Object *object = malloc(sizeof(Object));
+    object->properties = NULL;
+    object->property_count = 0;
+    object->property_capacity = 0;
+    object->type_name = "Object";
+    object->constructor_name = "Object";
+    
+    return object;
+}
+
+Value object_get_property(Object *object, const char *key) {
+    for (size_t i = 0; i < object->property_count; i++) {
+        if (strcmp(object->properties[i].key, key) == 0) {
+            return object->properties[i].value;
+        }
+    }
+    
+    return value_null();
+}
+
+void object_set_property(Object *object, const char *key, Value value) {
+    // Check if property already exists
+    for (size_t i = 0; i < object->property_count; i++) {
+        if (strcmp(object->properties[i].key, key) == 0) {
+            object->properties[i].value = value;
+            return;
+        }
+    }
+    
+    // Add new property
+    if (object->property_count >= object->property_capacity) {
+        object->property_capacity = object->property_capacity ? object->property_capacity * 2 : 8;
+        object->properties = realloc(object->properties, 
+                                   sizeof(Property) * object->property_capacity);
+    }
+    
+    object->properties[object->property_count].key = strdup(key);
+    object->properties[object->property_count].value = value;
+    object->property_count++;
+}
+
+bool check_custom_constraint(Value value, CustomConstraintChecker checker) {
+    return checker(value);
+}
+
+// Pattern matching DSL compiler
+Pattern *parse_pattern_string(const char *pattern_str) {
+    PatternLexer lexer;
+    pattern_lexer_init(&lexer, pattern_str);
+    
+    PatternParser parser;
+    pattern_parser_init(&parser, &lexer);
+    
+    return pattern_parser_parse(&parser);
+}
+
+void pattern_lexer_init(PatternLexer *lexer, const char *input) {
+    lexer->input = input;
+    lexer->position = 0;
+    lexer->length = strlen(input);
+    lexer->current_token = pattern_lexer_next_token(lexer);
+}
+
+PatternToken pattern_lexer_next_token(PatternLexer *lexer) {
+    // Skip whitespace
+    while (lexer->position < lexer->length && 
+           isspace(lexer->input[lexer->position])) {
+        lexer->position++;
+    }
+    
+    if (lexer->position >= lexer->length) {
+        return (PatternToken){PATTERN_TOKEN_EOF, "", 0};
+    }
+    
+    char c = lexer->input[lexer->position];
+    
+    switch (c) {
+        case '(':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_LPAREN, "(", 1};
+            
+        case ')':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_RPAREN, ")", 1};
+            
+        case '[':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_LBRACKET, "[", 1};
+            
+        case ']':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_RBRACKET, "]", 1};
+            
+        case '{':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_LBRACE, "{", 1};
+            
+        case '}':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_RBRACE, "}", 1};
+            
+        case ',':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_COMMA, ",", 1};
+            
+        case '|':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_PIPE, "|", 1};
+            
+        case '_':
+            lexer->position++;
+            return (PatternToken){PATTERN_TOKEN_WILDCARD, "_", 1};
+            
+        default:
+            if (isdigit(c) || c == '-') {
+                return pattern_lexer_read_number(lexer);
+            } else if (isalpha(c) || c == '_') {
+                return pattern_lexer_read_identifier(lexer);
+            } else if (c == '"' || c == '\'') {
+                return pattern_lexer_read_string(lexer);
+            } else {
+                lexer->position++;
+                return (PatternToken){PATTERN_TOKEN_UNKNOWN, &c, 1};
+            }
+    }
+}
+
+PatternToken pattern_lexer_read_number(PatternLexer *lexer) {
+    size_t start = lexer->position;
+    
+    if (lexer->input[lexer->position] == '-') {
+        lexer->position++;
+    }
+    
+    while (lexer->position < lexer->length && 
+           (isdigit(lexer->input[lexer->position]) || 
+            lexer->input[lexer->position] == '.')) {
+        lexer->position++;
+    }
+    
+    size_t length = lexer->position - start;
+    char *text = malloc(length + 1);
+    strncpy(text, lexer->input + start, length);
+    text[length] = '\0';
+    
+    return (PatternToken){PATTERN_TOKEN_NUMBER, text, length};
+}
+
+PatternToken pattern_lexer_read_identifier(PatternLexer *lexer) {
+    size_t start = lexer->position;
+    
+    while (lexer->position < lexer->length && 
+           (isalnum(lexer->input[lexer->position]) || 
+            lexer->input[lexer->position] == '_')) {
+        lexer->position++;
+    }
+    
+    size_t length = lexer->position - start;
+    char *text = malloc(length + 1);
+    strncpy(text, lexer->input + start, length);
+    text[length] = '\0';
+    
+    return (PatternToken){PATTERN_TOKEN_IDENTIFIER, text, length};
+}
+
+PatternToken pattern_lexer_read_string(PatternLexer *lexer) {
+    char quote = lexer->input[lexer->position];
+    lexer->position++; // Skip opening quote
+    
+    size_t start = lexer->position;
+    
+    while (lexer->position < lexer->length && 
+           lexer->input[lexer->position] != quote) {
+        if (lexer->input[lexer->position] == '\\') {
+            lexer->position++; // Skip escape character
+        }
+        lexer->position++;
+    }
+    
+    size_t length = lexer->position - start;
+    lexer->position++; // Skip closing quote
+    
+    char *text = malloc(length + 1);
+    strncpy(text, lexer->input + start, length);
+    text[length] = '\0';
+    
+    return (PatternToken){PATTERN_TOKEN_STRING, text, length};
+}
+
+void pattern_parser_init(PatternParser *parser, PatternLexer *lexer) {
+    parser->lexer = lexer;
+    parser->had_error = false;
+}
+
+Pattern *pattern_parser_parse(PatternParser *parser) {
+    return pattern_parser_parse_pattern(parser);
+}
+
+Pattern *pattern_parser_parse_pattern(PatternParser *parser) {
+    return pattern_parser_parse_or_pattern(parser);
+}
+
+Pattern *pattern_parser_parse_or_pattern(PatternParser *parser) {
+    Pattern *left = pattern_parser_parse_primary_pattern(parser);
+    
+    if (parser->lexer->current_token.type == PATTERN_TOKEN_PIPE) {
+        OrPattern or_pattern;
+        or_pattern.patterns = malloc(sizeof(Pattern *) * 16);
+        or_pattern.patterns[0] = left;
+        or_pattern.pattern_count = 1;
+        
+        while (parser->lexer->current_token.type == PATTERN_TOKEN_PIPE) {
+            pattern_lexer_advance(parser->lexer);
+            or_pattern.patterns[or_pattern.pattern_count++] = 
+                pattern_parser_parse_primary_pattern(parser);
+        }
+        
+        Pattern *pattern = malloc(sizeof(Pattern));
+        pattern->type = PATTERN_OR;
+        pattern->as.or_pattern = or_pattern;
+        
+        return pattern;
+    }
+    
+    return left;
+}
+
+Pattern *pattern_parser_parse_primary_pattern(PatternParser *parser) {
+    PatternToken token = parser->lexer->current_token;
+    
+    switch (token.type) {
+        case PATTERN_TOKEN_WILDCARD:
+            pattern_lexer_advance(parser->lexer);
+            return create_wildcard_pattern();
+            
+        case PATTERN_TOKEN_NUMBER:
+            pattern_lexer_advance(parser->lexer);
+            return create_literal_pattern_number(atof(token.text));
+            
+        case PATTERN_TOKEN_STRING:
+            pattern_lexer_advance(parser->lexer);
+            return create_literal_pattern_string(token.text);
+            
+        case PATTERN_TOKEN_IDENTIFIER:
+            pattern_lexer_advance(parser->lexer);
+            return create_identifier_pattern(token.text);
+            
+        case PATTERN_TOKEN_LPAREN:
+            return pattern_parser_parse_tuple_pattern(parser);
+            
+        case PATTERN_TOKEN_LBRACKET:
+            return pattern_parser_parse_array_pattern(parser);
+            
+        case PATTERN_TOKEN_LBRACE:
+            return pattern_parser_parse_object_pattern(parser);
+            
+        default:
+            parser->had_error = true;
+            return NULL;
+    }
+}
+
+Pattern *create_wildcard_pattern(void) {
+    Pattern *pattern = malloc(sizeof(Pattern));
+    pattern->type = PATTERN_WILDCARD;
+    return pattern;
+}
+
+Pattern *create_literal_pattern_number(double value) {
+    Pattern *pattern = malloc(sizeof(Pattern));
+    pattern->type = PATTERN_LITERAL;
+    pattern->as.literal.value_type = VALUE_NUMBER;
+    pattern->as.literal.as.number = value;
+    return pattern;
+}
+
+Pattern *create_literal_pattern_string(const char *value) {
+    Pattern *pattern = malloc(sizeof(Pattern));
+    pattern->type = PATTERN_LITERAL;
+    pattern->as.literal.value_type = VALUE_STRING;
+    pattern->as.literal.as.string = strdup(value);
+    return pattern;
+}
+
+Pattern *create_identifier_pattern(const char *name) {
+    Pattern *pattern = malloc(sizeof(Pattern));
+    pattern->type = PATTERN_IDENTIFIER;
+    pattern->as.identifier.name = strdup(name);
+    pattern->as.identifier.type_constraint = NULL;
+    return pattern;
+}
+
+void pattern_lexer_advance(PatternLexer *lexer) {
+    lexer->current_token = pattern_lexer_next_token(lexer);
 }

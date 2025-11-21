@@ -1,0 +1,235 @@
+<idea-plugin>
+    <id>dev.rubolt.intellij</id>
+    <name>Rubolt Language Support</name>
+    <version>1.0.0</version>
+    <vendor email="support@rubolt.dev" url="https://rubolt.dev">Rubolt Team</vendor>
+
+    <description><![CDATA[
+        Comprehensive Rubolt language support for IntelliJ IDEA and other JetBrains IDEs.
+        
+        Features:
+        - Syntax highlighting and code completion
+        - Error detection and quick fixes
+        - Debugging support with breakpoints
+        - Integrated REPL and project management
+        - Package management integration
+        - Code formatting and linting
+        - Go to definition and find usages
+        - Refactoring support
+    ]]></description>
+
+    <change-notes><![CDATA[
+        Version 1.0.0:
+        - Initial release with full Rubolt language support
+        - Syntax highlighting for .rbo files
+        - Code completion and error detection
+        - Debugging integration
+        - REPL support
+    ]]></change-notes>
+
+    <idea-version since-build="203.0"/>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.lang</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- File Type -->
+        <fileType name="Rubolt" 
+                  implementationClass="dev.rubolt.intellij.RuboltFileType" 
+                  fieldName="INSTANCE" 
+                  language="Rubolt" 
+                  extensions="rbo"/>
+
+        <!-- Language -->
+        <lang.parserDefinition language="Rubolt" 
+                              implementationClass="dev.rubolt.intellij.parser.RuboltParserDefinition"/>
+        
+        <lang.syntaxHighlighterFactory language="Rubolt" 
+                                      implementationClass="dev.rubolt.intellij.highlighting.RuboltSyntaxHighlighterFactory"/>
+
+        <!-- Code Completion -->
+        <completion.contributor language="Rubolt" 
+                               implementationClass="dev.rubolt.intellij.completion.RuboltCompletionContributor"/>
+
+        <!-- Error Highlighting -->
+        <annotator language="Rubolt" 
+                  implementationClass="dev.rubolt.intellij.annotator.RuboltAnnotator"/>
+
+        <!-- Code Formatting -->
+        <lang.formatter language="Rubolt" 
+                       implementationClass="dev.rubolt.intellij.formatter.RuboltFormattingModelBuilder"/>
+
+        <!-- Code Folding -->
+        <lang.foldingBuilder language="Rubolt" 
+                            implementationClass="dev.rubolt.intellij.folding.RuboltFoldingBuilder"/>
+
+        <!-- Brace Matching -->
+        <lang.braceMatcher language="Rubolt" 
+                          implementationClass="dev.rubolt.intellij.RuboltBraceMatcher"/>
+
+        <!-- Comment Handler -->
+        <lang.commenter language="Rubolt" 
+                       implementationClass="dev.rubolt.intellij.RuboltCommenter"/>
+
+        <!-- Find Usages -->
+        <lang.findUsagesProvider language="Rubolt" 
+                                implementationClass="dev.rubolt.intellij.findUsages.RuboltFindUsagesProvider"/>
+
+        <!-- Rename Handler -->
+        <lang.refactoringSupport language="Rubolt" 
+                                implementationClass="dev.rubolt.intellij.refactoring.RuboltRefactoringSupportProvider"/>
+
+        <!-- Structure View -->
+        <lang.psiStructureViewFactory language="Rubolt" 
+                                     implementationClass="dev.rubolt.intellij.structure.RuboltStructureViewFactory"/>
+
+        <!-- Run Configuration -->
+        <configurationType implementation="dev.rubolt.intellij.run.RuboltRunConfigurationType"/>
+        <runConfigurationProducer implementation="dev.rubolt.intellij.run.RuboltRunConfigurationProducer"/>
+
+        <!-- Debugger -->
+        <programRunner implementation="dev.rubolt.intellij.debugger.RuboltDebuggerRunner"/>
+        <xdebugger.breakpointType implementation="dev.rubolt.intellij.debugger.RuboltLineBreakpointType"/>
+
+        <!-- Project Template -->
+        <projectTemplatesFactory implementation="dev.rubolt.intellij.project.RuboltProjectTemplatesFactory"/>
+
+        <!-- Tool Windows -->
+        <toolWindow id="Rubolt REPL" 
+                   secondary="true" 
+                   anchor="bottom" 
+                   factoryClass="dev.rubolt.intellij.repl.RuboltReplToolWindowFactory"/>
+
+        <toolWindow id="Rubolt Packages" 
+                   secondary="true" 
+                   anchor="left" 
+                   factoryClass="dev.rubolt.intellij.packages.RuboltPackagesToolWindowFactory"/>
+
+        <!-- Inspections -->
+        <localInspection language="Rubolt" 
+                        shortName="RuboltUnusedVariable" 
+                        displayName="Unused variable" 
+                        groupName="Rubolt" 
+                        enabledByDefault="true" 
+                        level="WARNING" 
+                        implementationClass="dev.rubolt.intellij.inspections.RuboltUnusedVariableInspection"/>
+
+        <localInspection language="Rubolt" 
+                        shortName="RuboltMissingReturnType" 
+                        displayName="Missing return type annotation" 
+                        groupName="Rubolt" 
+                        enabledByDefault="true" 
+                        level="WEAK WARNING" 
+                        implementationClass="dev.rubolt.intellij.inspections.RuboltMissingReturnTypeInspection"/>
+
+        <!-- Live Templates -->
+        <defaultLiveTemplatesProvider implementation="dev.rubolt.intellij.liveTemplates.RuboltLiveTemplatesProvider"/>
+        <liveTemplateContext implementation="dev.rubolt.intellij.liveTemplates.RuboltTemplateContextType"/>
+
+        <!-- Color Settings -->
+        <colorSettingsPage implementation="dev.rubolt.intellij.highlighting.RuboltColorSettingsPage"/>
+
+        <!-- Language Injection -->
+        <languageInjector implementation="dev.rubolt.intellij.injection.RuboltLanguageInjector"/>
+    </extensions>
+
+    <actions>
+        <!-- Main Menu Actions -->
+        <group id="RuboltMenu" text="Rubolt" description="Rubolt language actions">
+            <add-to-group group-id="MainMenu" anchor="before" relative-to-action="HelpMenu"/>
+            
+            <action id="RuboltRunFile" 
+                   class="dev.rubolt.intellij.actions.RuboltRunFileAction" 
+                   text="Run Rubolt File" 
+                   description="Run the current Rubolt file">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl F5"/>
+            </action>
+            
+            <action id="RuboltDebugFile" 
+                   class="dev.rubolt.intellij.actions.RuboltDebugFileAction" 
+                   text="Debug Rubolt File" 
+                   description="Debug the current Rubolt file">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift F5"/>
+            </action>
+            
+            <separator/>
+            
+            <action id="RuboltOpenRepl" 
+                   class="dev.rubolt.intellij.actions.RuboltOpenReplAction" 
+                   text="Open REPL" 
+                   description="Open Rubolt REPL">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt R"/>
+            </action>
+            
+            <action id="RuboltFormatCode" 
+                   class="dev.rubolt.intellij.actions.RuboltFormatCodeAction" 
+                   text="Format Code" 
+                   description="Format Rubolt code">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl alt L"/>
+            </action>
+            
+            <separator/>
+            
+            <action id="RuboltNewProject" 
+                   class="dev.rubolt.intellij.actions.RuboltNewProjectAction" 
+                   text="New Rubolt Project" 
+                   description="Create a new Rubolt project"/>
+            
+            <action id="RuboltPackageManager" 
+                   class="dev.rubolt.intellij.actions.RuboltPackageManagerAction" 
+                   text="Package Manager" 
+                   description="Open Rubolt package manager"/>
+        </group>
+
+        <!-- Context Menu Actions -->
+        <group id="RuboltEditorPopup">
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            
+            <action id="RuboltRunSelection" 
+                   class="dev.rubolt.intellij.actions.RuboltRunSelectionAction" 
+                   text="Run Selection in REPL" 
+                   description="Run selected code in REPL">
+                <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift E"/>
+            </action>
+            
+            <action id="RuboltExplainCode" 
+                   class="dev.rubolt.intellij.actions.RuboltExplainCodeAction" 
+                   text="Explain Code" 
+                   description="Explain selected Rubolt code"/>
+            
+            <separator/>
+        </group>
+
+        <!-- Project View Actions -->
+        <group id="RuboltProjectViewPopup">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="EditSource"/>
+            
+            <action id="RuboltRunProject" 
+                   class="dev.rubolt.intellij.actions.RuboltRunProjectAction" 
+                   text="Run Rubolt Project" 
+                   description="Run the Rubolt project"/>
+            
+            <action id="RuboltBuildProject" 
+                   class="dev.rubolt.intellij.actions.RuboltBuildProjectAction" 
+                   text="Build Rubolt Project" 
+                   description="Build the Rubolt project"/>
+            
+            <action id="RuboltTestProject" 
+                   class="dev.rubolt.intellij.actions.RuboltTestProjectAction" 
+                   text="Test Rubolt Project" 
+                   description="Run tests for the Rubolt project"/>
+        </group>
+    </actions>
+
+    <application-components>
+        <component>
+            <implementation-class>dev.rubolt.intellij.RuboltApplicationComponent</implementation-class>
+        </component>
+    </application-components>
+
+    <project-components>
+        <component>
+            <implementation-class>dev.rubolt.intellij.RuboltProjectComponent</implementation-class>
+        </component>
+    </project-components>
+</idea-plugin>
