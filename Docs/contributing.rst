@@ -2,7 +2,7 @@
 Contributing to Rubolt
 =======================
 
-Thank you for your interest in contributing to Rubolt! This guide will help you get started with development.
+Thank you for your interest in contributing to Rubolt! This guide will help you get started with development and understand our contribution process.
 
 .. contents:: Table of Contents
    :local:
@@ -14,66 +14,33 @@ Getting Started
 Development Environment Setup
 -----------------------------
 
-Prerequisites
-~~~~~~~~~~~~~
+**Prerequisites:**
 
-**Windows:**
+* **Windows**: MinGW-w64 or MSVC, Python 3.8+, Git
+* **macOS**: Xcode Command Line Tools, Python 3.8+, Git  
+* **Linux**: GCC 8.0+, Python 3.8+, Make, Git
 
-- MinGW-w64 or MSVC with GCC 8.0+
-- Python 3.8+ (for build scripts and gimmicks)
-- Git for version control
-- VS Code (recommended) or your preferred editor
-
-**Linux/macOS:**
-
-- GCC 8.0+ or Clang 10.0+
-- Python 3.8+
-- Git
-- Make
-
-Cloning the Repository
-~~~~~~~~~~~~~~~~~~~~~~
+**Clone and Build:**
 
 .. code-block:: bash
 
    git clone https://github.com/piratebomber/Rubolt.git
    cd Rubolt
-
-Building from Source
-~~~~~~~~~~~~~~~~~~~~
-
-**Windows:**
-
-.. code-block:: batch
-
+   
+   # Windows
    build_all.bat
-
-**Linux/macOS:**
-
-.. code-block:: bash
-
+   
+   # macOS/Linux
    chmod +x build_all.sh
    ./build_all.sh
 
-This builds:
-
-- ``src/rubolt.exe`` - Main interpreter
-- ``rbcli.exe`` - CLI tool
-- ``rubolt-repl.exe`` - Interactive REPL
-
-Using Docker/Devcontainer
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For a reproducible development environment:
+**VS Code Setup:**
 
 .. code-block:: bash
 
-   # Using Docker
-   docker build -t rubolt .
-   docker run -it -v $PWD:/work rubolt
-
-   # Using VS Code Devcontainer
-   # Open folder in VS Code and "Reopen in Container"
+   cd vscode-rubolt
+   npm install
+   npm run compile
 
 Code Style Guidelines
 =====================
@@ -81,19 +48,10 @@ Code Style Guidelines
 C Code Standards
 ----------------
 
-General Rules
-~~~~~~~~~~~~~
-
-- **Standard:** C11 compliant code only
-- **Compiler:** Must compile with ``-Wall -Wextra`` without warnings
-- **Formatting:** Use EditorConfig settings (4 spaces, no tabs)
-- **Naming:**
-  - Functions: ``snake_case``
-  - Types: ``PascalCase``
-  - Constants/Macros: ``UPPER_SNAKE_CASE``
-  - Variables: ``snake_case``
-
-Example:
+* **Standard**: C11 compliant code
+* **Compiler**: Must compile with ``-Wall -Wextra`` without warnings
+* **Formatting**: 4 spaces, no tabs
+* **Naming**: ``snake_case`` functions, ``PascalCase`` types, ``UPPER_SNAKE_CASE`` constants
 
 .. code-block:: c
 
@@ -109,59 +67,25 @@ Example:
        repl->cursor_pos = 0;
    }
 
-Memory Management
-~~~~~~~~~~~~~~~~~
+**Memory Management:**
 
-- Always free allocated memory
-- Use ``malloc/calloc/realloc/free`` for manual management
-- Use GC (``gc/gc.h``) or RC (``rc/rc.h``) for managed objects
-- Check for NULL after allocation
-- Avoid memory leaks - use Valgrind or similar tools
+* Always free allocated memory
+* Check for NULL after allocation
+* Use GC (``gc/gc.h``) or RC (``rc/rc.h``) for managed objects
 
-Example:
+**Error Handling:**
 
-.. code-block:: c
-
-   char *buffer = malloc(size);
-   if (!buffer) {
-       fprintf(stderr, "Memory allocation failed\n");
-       return NULL;
-   }
-   // ... use buffer ...
-   free(buffer);
-
-Error Handling
-~~~~~~~~~~~~~~
-
-- Return ``bool`` for success/failure
-- Return ``NULL`` for pointer failures
-- Use negative values for error codes
-- Always check return values
-
-Example:
-
-.. code-block:: c
-
-   bool parse_config(const char *path, Config *out) {
-       FILE *f = fopen(path, "r");
-       if (!f) {
-           fprintf(stderr, "Failed to open %s\n", path);
-           return false;
-       }
-       // ... parse config ...
-       fclose(f);
-       return true;
-   }
+* Return ``bool`` for success/failure
+* Return ``NULL`` for pointer failures
+* Always check return values
 
 Python Code Standards
 ---------------------
 
-- Follow PEP 8 style guide
-- Use type hints (Python 3.8+)
-- Docstrings for all public functions
-- Maximum line length: 100 characters
-
-Example:
+* Follow PEP 8 style guide
+* Use type hints (Python 3.8+)
+* Docstrings for all public functions
+* Maximum line length: 100 characters
 
 .. code-block:: python
 
@@ -177,107 +101,32 @@ Example:
        with open(header_path, 'r') as f:
            return parse_functions(f.read())
 
-Project Structure
-=================
-
-Key Directories
----------------
-
-::
-
-   Rubolt/
-   ├── src/                    # Core interpreter (C)
-   │   ├── lexer.c/h          # Tokenization
-   │   ├── parser.c/h         # AST parsing
-   │   ├── interpreter.c/h    # Execution engine
-   │   ├── typechecker.c/h    # Static type checking
-   │   └── module.c/h         # Module system
-   ├── repl/                   # Interactive REPL
-   │   ├── repl.c/h           # REPL implementation
-   │   └── repl_main.c        # Entry point
-   ├── cli/                    # CLI tool (rbcli)
-   ├── gc/                     # Garbage collector
-   ├── rc/                     # Reference counting
-   ├── collections/            # Data structures
-   ├── python/                 # Python bindings & gimmicks
-   │   └── gimmicks/          # C↔Python interop tools
-   ├── vendor/                 # Dependency manager
-   ├── shared/                 # SDK and shared modules
-   ├── compiletime/            # Preprocessor macros
-   ├── Modules/                # Native C modules
-   ├── Docs/                   # Documentation (reST)
-   ├── examples/               # Example programs
-   └── tests/                  # Test suite
-
 Adding New Features
 ===================
 
-Adding a Language Feature
--------------------------
+Language Features
+-----------------
 
-1. **Update the Lexer** (``src/lexer.c``)
-   - Add new token types to ``TokenType`` enum
-   - Implement token recognition
+1. **Update Lexer** (``src/lexer.c``) - Add token types and recognition
+2. **Update Parser** (``src/parser.c``) - Add parsing rules and AST nodes
+3. **Update Interpreter** (``src/interpreter.c``) - Implement execution logic
+4. **Add Tests** - Create test cases in ``tests/``
+5. **Update Documentation** - Document syntax in ``Docs/language_reference.rst``
+6. **Update VS Code Grammar** - Add syntax highlighting support
 
-2. **Update the Parser** (``src/parser.c``)
-   - Add parsing rules for new syntax
-   - Create AST node types
-
-3. **Update the Interpreter** (``src/interpreter.c``)
-   - Implement execution logic
-   - Handle type checking
-
-4. **Add Tests** (``tests/``)
-   - Create test cases
-   - Verify behavior
-
-5. **Update Documentation** (``Docs/language_reference.rst``)
-   - Document syntax
-   - Provide examples
-
-6. **Update TextMate Grammar** (``vscode-rubolt/syntaxes/rubolt.tmLanguage.json``)
-   - Add syntax highlighting support
-
-Example: Adding a new operator:
+Built-in Modules
+-----------------
 
 .. code-block:: c
 
-   // 1. lexer.h - Add token type
-   TOKEN_POWER,  // ** operator
-
-   // 2. lexer.c - Recognize token
-   if (*lexer->current == '*' && *(lexer->current + 1) == '*') {
-       lexer->current += 2;
-       return make_token(lexer, TOKEN_POWER);
-   }
-
-   // 3. parser.c - Parse binary expression
-   if (match(&parser, TOKEN_POWER)) {
-       Expr *right = parse_exponentiation(parser);
-       left = expr_binary("**", left, right);
-   }
-
-   // 4. interpreter.c - Evaluate
-   if (strcmp(expr->as.binary.op, "**") == 0) {
-       return value_number(pow(left.as.number, right.as.number));
-   }
-
-Adding a Built-in Module
-------------------------
-
-1. Create module in ``Modules/mymodule_mod.c``:
-
-.. code-block:: c
-
+   // Modules/mymodule_mod.c
    #include "../src/module.h"
-   #include "../src/ast.h"
 
    static Value mymodule_function(Environment *env, Value *args, size_t arg_count) {
        if (arg_count != 1) {
            fprintf(stderr, "mymodule.function() takes 1 argument\n");
            return value_null();
        }
-       // Implementation
        return value_number(42);
    }
 
@@ -287,38 +136,7 @@ Adding a Built-in Module
        module_registry_add(registry, mod);
    }
 
-2. Register in ``src/modules_registry.c``:
-
-.. code-block:: c
-
-   extern void register_mymodule(ModuleRegistry *registry);
-
-   void modules_registry_init(ModuleRegistry *registry) {
-       // ... existing modules ...
-       register_mymodule(registry);
-   }
-
-3. Update build scripts (``build_all.bat``, ``Makefile``)
-
-4. Document in ``Docs/stdlib.rst``
-
-Adding REPL Commands
---------------------
-
-1. Add command handler in ``repl/repl.c``:
-
-.. code-block:: c
-
-   void repl_cmd_mycommand(const char *args) {
-       printf("Executing mycommand with args: %s\n", args);
-       // Implementation
-   }
-
-2. Register in ``repl_init()``:
-
-.. code-block:: c
-
-   repl_register_command("mycommand", "Description", repl_cmd_mycommand);
+Register in ``src/modules_registry.c`` and update build scripts.
 
 Testing
 =======
@@ -330,14 +148,12 @@ Running Tests
 
    # Run all tests
    rbcli test
-
+   
    # Run specific test
    rbcli run tests/test_feature.rbo
 
 Writing Tests
 -------------
-
-Create test files in ``tests/``:
 
 .. code-block:: rubolt
 
@@ -347,26 +163,20 @@ Create test files in ``tests/``:
        let result: number = myfunction(5);
        assert(result == 10, "Expected 10");
    }
-
-   def test_edge_case() -> void {
-       let result: number = myfunction(0);
-       assert(result == 0, "Expected 0");
-   }
-
+   
    test_basic();
-   test_edge_case();
    print("All tests passed!");
 
 Memory Testing
 --------------
 
-**Linux/macOS with Valgrind:**
+**Linux/macOS:**
 
 .. code-block:: bash
 
    valgrind --leak-check=full ./src/rubolt examples/test.rbo
 
-**Windows with Dr. Memory:**
+**Windows:**
 
 .. code-block:: batch
 
@@ -378,94 +188,37 @@ Pull Request Process
 Before Submitting
 -----------------
 
-1. **Create a branch:**
+1. **Create branch**: ``git checkout -b feature/my-feature``
+2. **Test thoroughly**: ``rbcli test``
+3. **Update documentation**: Add/update ``.rst`` files
+4. **Commit with clear messages**: Use conventional commit format
 
-   .. code-block:: bash
+.. code-block:: bash
 
-      git checkout -b feature/my-feature
+   git commit -m "feat: add power operator (**) support
 
-2. **Make your changes**
+   - Added TOKEN_POWER to lexer
+   - Implemented exponentiation in parser and interpreter  
+   - Added tests for edge cases
+   - Updated language reference documentation
 
-3. **Test thoroughly:**
-
-   .. code-block:: bash
-
-      build_all.bat
-      rbcli test
-
-4. **Update documentation:**
-
-   - Add/update ``.rst`` files in ``Docs/``
-   - Update ``README.md`` if needed
-   - Add inline code comments
-
-5. **Commit with clear messages:**
-
-   .. code-block:: bash
-
-      git add .
-      git commit -m "Add feature: description"
-
-   Commit message format::
-
-      <type>: <subject>
-
-      <body>
-
-      <footer>
-
-   Types: ``feat``, ``fix``, ``docs``, ``style``, ``refactor``, ``test``, ``chore``
-
-   Example::
-
-      feat: add power operator (**) support
-
-      - Added TOKEN_POWER to lexer
-      - Implemented exponentiation in parser and interpreter
-      - Added tests for edge cases
-      - Updated language reference documentation
-
-      Closes #123
+   Closes #123"
 
 Submitting the PR
 -----------------
 
-1. Push to your fork:
+1. **Push to fork**: ``git push origin feature/my-feature``
+2. **Open Pull Request** on GitHub
+3. **Fill out PR template** with description, motivation, testing info
+4. **Complete checklist**:
 
-   .. code-block:: bash
-
-      git push origin feature/my-feature
-
-2. Open a Pull Request on GitHub
-
-3. Fill out the PR template:
-
-   - **Description:** What does this PR do?
-   - **Motivation:** Why is this change needed?
-   - **Testing:** How was this tested?
-   - **Screenshots:** If UI changes
-   - **Checklist:** Complete all items
-
-PR Checklist
-~~~~~~~~~~~~
-
-- [ ] Code compiles without warnings
-- [ ] All tests pass
-- [ ] New tests added for new features
-- [ ] Documentation updated
-- [ ] Commit messages follow conventions
-- [ ] No merge conflicts
-- [ ] Code follows style guidelines
-- [ ] Memory leaks checked (Valgrind/Dr. Memory)
-
-Code Review Process
--------------------
-
-- Maintainers will review within 1-3 days
-- Address feedback promptly
-- Be open to suggestions
-- Update PR based on review comments
-- Once approved, maintainer will merge
+   - [ ] Code compiles without warnings
+   - [ ] All tests pass
+   - [ ] New tests added for new features
+   - [ ] Documentation updated
+   - [ ] Commit messages follow conventions
+   - [ ] No merge conflicts
+   - [ ] Memory leaks checked
 
 Community Guidelines
 ====================
@@ -473,26 +226,26 @@ Community Guidelines
 Code of Conduct
 ---------------
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the code, not the person
-- Help newcomers feel welcome
-- Report unacceptable behavior to maintainers
+* Be respectful and inclusive
+* Provide constructive feedback
+* Focus on the code, not the person
+* Help newcomers feel welcome
+* Report unacceptable behavior to maintainers
 
 Getting Help
 ------------
 
-- **GitHub Issues:** Bug reports and feature requests
-- **GitHub Discussions:** Questions and community chat
-- **Documentation:** Check ``Docs/`` first
-- **Examples:** See ``examples/`` for usage patterns
+* **GitHub Issues**: Bug reports and feature requests
+* **GitHub Discussions**: Questions and community chat
+* **Documentation**: Check ``Docs/`` first
+* **Examples**: See ``examples/`` for usage patterns
 
 Reporting Bugs
 --------------
 
 Use the bug report template:
 
-::
+.. code-block:: text
 
    **Describe the bug**
    A clear description of what the bug is.
@@ -506,49 +259,38 @@ Use the bug report template:
    **Expected behavior**
    What should happen.
 
-   **Actual behavior**
-   What actually happens.
-
    **Environment:**
    - OS: [e.g., Windows 11, Ubuntu 22.04]
    - Rubolt version: [e.g., 1.0.0]
    - GCC version: [e.g., 11.2]
 
-   **Additional context**
-   Any other relevant information.
-
 Advanced Topics
 ===============
 
-Working with the GC/RC Systems
--------------------------------
+Working with Memory Systems
+---------------------------
 
-See ``gc/README.md`` and ``rc/README.md`` for detailed documentation on memory management systems.
+See ``gc/README.md`` and ``rc/README.md`` for detailed documentation.
 
-Python Interop (Gimmicks)
---------------------------
+Python Interop Development
+---------------------------
 
-See ``python/gimmicks/README.md`` for guides on:
-
-- GCC-to-Python compilation
-- C wrapper generation
-- Type conversion
-- FFI helpers
+See ``python/gimmicks/README.md`` for guides on C↔Python interop tools.
 
 Vendor System
 -------------
 
-See ``vendor/README.md`` for dependency management.
+See ``vendor/README.md`` for dependency management development.
 
 CI/CD Pipelines
 ---------------
 
 GitHub Actions workflows in ``.github/workflows/``:
 
-- ``build.yml`` - Multi-platform builds
-- ``lint.yml`` - Code quality checks
-- ``test.yml`` - Test suite execution
-- ``docs.yml`` - Documentation generation
+* ``build.yml`` - Multi-platform builds
+* ``lint.yml`` - Code quality checks  
+* ``test.yml`` - Test suite execution
+* ``docs.yml`` - Documentation generation
 
 License
 =======
