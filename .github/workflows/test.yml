@@ -86,7 +86,7 @@ jobs:
           valgrind --leak-check=full --error-exitcode=1 ./src/rubolt examples/hello.rbo || echo "Valgrind check skipped"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rubolt-${{ matrix.os }}
           path: |
