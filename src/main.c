@@ -1,10 +1,11 @@
 #include "lexer.h"
 #include "parser.h"
 #include "interpreter.h"
-#include "../runtime/runtime.h"
+#include "ast.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 static char* read_file(const char* path) {
     FILE* file = fopen(path, "rb");
@@ -37,14 +38,42 @@ static char* read_file(const char* path) {
     return buffer;
 }
 
-static void run_file_compat(const char* path) {
-    int code = runtime_run_file(path);
-    if (code != 0) exit(code);
+static void run_file(const char* path) {
+    char* source = read_file(path);
+    if (source == NULL) {
+        exit(74);
+    }
+    
+    Lexer lexer;
+    lexer_init(&lexer, source);
+    
+    Parser parser;
+    parser_init(&parser, &lexer);
+    
+    size_t stmt_count;
+    Stmt** statements = parse(&parser, &stmt_count);
+    
+    if (parser.had_error) {
+        free(source);
+        exit(65);
+    }
+    
+    Interpreter* interp = interpreter_create();
+    Value result = interpret(interp, statements, stmt_count);
+    
+    // Cleanup
+    for (size_t i = 0; i < stmt_count; i++) {
+        stmt_free(statements[i]);
+    }
+    free(statements);
+    interpreter_cleanup(interp);
+    free(source);
 }
 
 static void repl() {
     char line[1024];
-    printf("Rubolt v1.0.0 - Interactive REPL\n");
+    printf("Rubolt v1.0.0 Enhanced - Interactive REPL\n");
+    printf("Features: Nested Functions, Enhanced Loops, Closures\n");
     printf("Type 'exit' to quit.\n\n");
 
     while (true) {
@@ -59,7 +88,32 @@ static void repl() {
             break;
         }
 
-        (void)runtime_run_source(line);
+        Lexer lexer;
+        lexer_init(&lexer, line);
+        
+        Parser parser;
+        parser_init(&parser, &lexer);
+        
+        size_t stmt_count;
+        Stmt** statements = parse(&parser, &stmt_count);
+        
+        if (!parser.had_error && stmt_count > 0) {
+            Interpreter* interp = interpreter_create();
+            Value result = interpret(interp, statements, stmt_count);
+            
+            // Print result if it's not null
+            if (result.type != VALUE_NULL) {
+                value_print(result);
+                printf("\n");
+            }
+            
+            // Cleanup
+            for (size_t i = 0; i < stmt_count; i++) {
+                stmt_free(statements[i]);
+            }
+            free(statements);
+            interpreter_cleanup(interp);
+        }
     }
 }
 
@@ -67,7 +121,7 @@ int main(int argc, const char* argv[]) {
     if (argc == 1) {
         repl();
     } else if (argc == 2) {
-        run_file_compat(argv[1]);
+        run_file(argv[1]);
     } else {
         fprintf(stderr, "Usage: rubolt [path]\n");
         exit(64);

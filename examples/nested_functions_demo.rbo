@@ -1,0 +1,291 @@
+// Rubolt Nested Functions and Enhanced Loops Demo
+// This example demonstrates the full implementation of nested functions,
+// enhanced loop constructs, and proper scoping
+
+// Example 1: Basic nested function with closure
+def outer_function(x: number) -> function {
+    let outer_var = x * 2;
+    
+    // Nested function that captures outer_var
+    def inner_function(y: number) -> number {
+        return outer_var + y;
+    }
+    
+    return inner_function;
+}
+
+// Example 2: Multiple levels of nesting
+def create_counter(start: number) -> function {
+    let count = start;
+    
+    def increment() -> function {
+        count = count + 1;
+        
+        def get_value() -> number {
+            return count;
+        }
+        
+        return get_value;
+    }
+    
+    def decrement() -> function {
+        count = count - 1;
+        
+        def get_value() -> number {
+            return count;
+        }
+        
+        return get_value;
+    }
+    
+    def get_counter() -> object {
+        return {
+            inc: increment,
+            dec: decrement,
+            value: count
+        };
+    }
+    
+    return get_counter;
+}
+
+// Example 3: Anonymous nested functions
+def higher_order_function(operation: string) -> function {
+    if (operation == "add") {
+        return (a: number, b: number) -> number {
+            return a + b;
+        };
+    } else if (operation == "multiply") {
+        return (a: number, b: number) -> number {
+            return a * b;
+        };
+    } else {
+        return (a: number, b: number) -> number {
+            return 0;
+        };
+    }
+}
+
+// Example 4: Enhanced for-in loops
+def demonstrate_loops() -> void {
+    let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    let result = [];
+    
+    print("For-in loop with array:");
+    for (num in numbers) {
+        if (num % 2 == 0) {
+            result.append(num * 2);
+        }
+    }
+    print("Even numbers doubled:", result);
+    
+    print("\nFor-in loop with range:");
+    for (i in range(1, 11)) {
+        if (i % 3 == 0) {
+            print("Multiple of 3:", i);
+        }
+    }
+    
+    print("\nDo-while loop:");
+    let counter = 0;
+    do {
+        counter = counter + 1;
+        print("Counter:", counter);
+        
+        if (counter >= 3) {
+            break;
+        }
+    } while (counter < 10);
+    
+    print("\nNested loops with break/continue:");
+    outer_loop: for (i in range(1, 4)) {
+        inner_loop: for (j in range(1, 4)) {
+            if (i == 2 && j == 2) {
+                print("Skipping i=2, j=2");
+                continue inner_loop;
+            }
+            
+            if (i == 3 && j == 1) {
+                print("Breaking outer loop at i=3, j=1");
+                break outer_loop;
+            }
+            
+            print("i:", i, "j:", j);
+        }
+    }
+}
+
+// Example 5: Recursive nested functions
+def fibonacci_generator() -> function {
+    def fib(n: number) -> number {
+        if (n <= 1) {
+            return n;
+        }
+        
+        // Nested helper function for memoization
+        def fib_memo(n: number, memo: object) -> number {
+            if (memo[n] != null) {
+                return memo[n];
+            }
+            
+            memo[n] = fib_memo(n - 1, memo) + fib_memo(n - 2, memo);
+            return memo[n];
+        }
+        
+        return fib_memo(n, {0: 0, 1: 1});
+    }
+    
+    return fib;
+}
+
+// Example 6: Function factory with different behaviors
+def create_validator(type: string) -> function {
+    if (type == "email") {
+        def validate_email(email: string) -> bool {
+            // Simplified email validation
+            return email.contains("@") && email.contains(".");
+        }
+        return validate_email;
+    } else if (type == "number") {
+        def validate_number(value: any) -> bool {
+            return typeof(value) == "number" && !isNaN(value);
+        }
+        return validate_number;
+    } else if (type == "range") {
+        def create_range_validator(min: number, max: number) -> function {
+            def validate_range(value: number) -> bool {
+                return value >= min && value <= max;
+            }
+            return validate_range;
+        }
+        return create_range_validator;
+    }
+    
+    return (value: any) -> bool { return true; };
+}
+
+// Example 7: Event system with nested callbacks
+def create_event_system() -> object {
+    let listeners = {};
+    
+    def add_listener(event: string, callback: function) -> void {
+        if (listeners[event] == null) {
+            listeners[event] = [];
+        }
+        listeners[event].append(callback);
+    }
+    
+    def emit_event(event: string, data: any) -> void {
+        if (listeners[event] != null) {
+            for (callback in listeners[event]) {
+                callback(data);
+            }
+        }
+    }
+    
+    def create_middleware(name: string) -> function {
+        def middleware(data: any) -> any {
+            print("Middleware", name, "processing:", data);
+            
+            // Nested transformation function
+            def transform(input: any) -> any {
+                if (typeof(input) == "string") {
+                    return input.toUpperCase();
+                } else if (typeof(input) == "number") {
+                    return input * 2;
+                } else {
+                    return input;
+                }
+            }
+            
+            return transform(data);
+        }
+        
+        return middleware;
+    }
+    
+    return {
+        on: add_listener,
+        emit: emit_event,
+        middleware: create_middleware
+    };
+}
+
+// Main demonstration function
+def main() -> void {
+    print("=== Rubolt Nested Functions and Enhanced Loops Demo ===\n");
+    
+    // Test basic nested function
+    print("1. Basic nested function with closure:");
+    let add_ten = outer_function(5);
+    print("Result:", add_ten(3)); // Should print 13 (5*2 + 3)
+    
+    // Test counter with nested functions
+    print("\n2. Counter with nested functions:");
+    let counter_factory = create_counter(10);
+    let counter = counter_factory();
+    let inc_fn = counter.inc();
+    let get_val1 = inc_fn();
+    print("After increment:", get_val1()); // Should print 11
+    
+    // Test higher-order functions
+    print("\n3. Higher-order functions:");
+    let adder = higher_order_function("add");
+    let multiplier = higher_order_function("multiply");
+    print("Add 5 + 3:", adder(5, 3)); // Should print 8
+    print("Multiply 4 * 6:", multiplier(4, 6)); // Should print 24
+    
+    // Test enhanced loops
+    print("\n4. Enhanced loops:");
+    demonstrate_loops();
+    
+    // Test fibonacci with nested memoization
+    print("\n5. Fibonacci with nested memoization:");
+    let fib = fibonacci_generator();
+    for (i in range(0, 10)) {
+        print("fib(" + i + ") =", fib(i));
+    }
+    
+    // Test validators
+    print("\n6. Validator functions:");
+    let email_validator = create_validator("email");
+    let number_validator = create_validator("number");
+    let range_validator = create_validator("range")(1, 100);
+    
+    print("Valid email:", email_validator("test@example.com"));
+    print("Invalid email:", email_validator("invalid"));
+    print("Valid number:", number_validator(42));
+    print("Invalid number:", number_validator("not a number"));
+    print("Valid range:", range_validator(50));
+    print("Invalid range:", range_validator(150));
+    
+    // Test event system
+    print("\n7. Event system with nested callbacks:");
+    let events = create_event_system();
+    
+    // Add listeners with nested behavior
+    events.on("test", (data: any) -> void {
+        print("Listener 1 received:", data);
+        
+        // Nested callback processing
+        def process_data(input: any) -> void {
+            if (typeof(input) == "string") {
+                print("Processing string:", input.length, "characters");
+            } else {
+                print("Processing non-string data");
+            }
+        }
+        
+        process_data(data);
+    });
+    
+    events.on("test", events.middleware("transform"));
+    
+    events.emit("test", "Hello World");
+    events.emit("test", 42);
+    
+    print("\n=== Demo Complete ===");
+}
+
+// Run the demonstration
+main();

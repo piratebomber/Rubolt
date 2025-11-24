@@ -24,6 +24,8 @@ typedef enum {
     TOKEN_ELIF,
     TOKEN_FOR,
     TOKEN_WHILE,
+    TOKEN_DO,
+    TOKEN_IN,
     TOKEN_BREAK,
     TOKEN_CONTINUE,
     TOKEN_CLASS,
@@ -33,6 +35,9 @@ typedef enum {
     TOKEN_PASS,
     TOKEN_PRINT,
     TOKEN_PRINTF,
+    TOKEN_MATCH,
+    TOKEN_CASE,
+    TOKEN_DEFAULT,
     
     // Types
     TOKEN_STRING_TYPE,

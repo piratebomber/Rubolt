@@ -59,6 +59,9 @@ static Stmt* parse_statement(Parser* parser);
 static Stmt* parse_declaration(Parser* parser);
 static Stmt* parse_import_stmt(Parser* parser);
 
+static Expr* parse_function_expr(Parser* parser);
+static Expr* parse_array_expr(Parser* parser);
+
 static Expr* parse_primary(Parser* parser) {
     if (match(parser, TOKEN_TRUE)) {
         return expr_bool(true);
@@ -94,9 +97,23 @@ static Expr* parse_primary(Parser* parser) {
     }
     
     if (match(parser, TOKEN_LPAREN)) {
+        // Check for function expression
+        if (check(parser, TOKEN_IDENTIFIER) || check(parser, TOKEN_RPAREN)) {
+            // Could be function parameters, backtrack and parse as function
+            parser->current = parser->previous;
+            return parse_function_expr(parser);
+        }
         Expr* expr = parse_expression(parser);
         consume(parser, TOKEN_RPAREN, "Expect ')' after expression.");
         return expr;
+    }
+    
+    if (match(parser, TOKEN_LBRACKET)) {
+        return parse_array_expr(parser);
+    }
+    
+    if (check(parser, TOKEN_DEF) || check(parser, TOKEN_FUNCTION)) {
+        return parse_function_expr(parser);
     }
     
     error_at(parser, &parser->current, "Expect expression.");
@@ -120,6 +137,15 @@ static Expr* parse_call(Parser* parser) {
             
             consume(parser, TOKEN_RPAREN, "Expect ')' after arguments.");
             expr = expr_call(expr, args, arg_count);
+        } else if (match(parser, TOKEN_LBRACKET)) {
+            Expr* index = parse_expression(parser);
+            consume(parser, TOKEN_RBRACKET, "Expect ']' after index.");
+            expr = expr_index(expr, index);
+        } else if (match(parser, TOKEN_DOT)) {
+            consume(parser, TOKEN_IDENTIFIER, "Expect property name after '.'.");
+            char* property = strndup(parser->previous.start, parser->previous.length);
+            expr = expr_member(expr, property);
+            free(property);
         } else {
             break;
         }
@@ -356,10 +382,53 @@ static Stmt* parse_while_stmt(Parser* parser) {
     return stmt_while(condition, body, body_count);
 }
 
+static Stmt* parse_for_stmt(Parser* parser);
+static Stmt* parse_for_in_stmt(Parser* parser);
+static Stmt* parse_do_while_stmt(Parser* parser);
+static Stmt* parse_break_stmt(Parser* parser);
+static Stmt* parse_continue_stmt(Parser* parser);
+
 static Stmt* parse_for_stmt(Parser* parser) {
     advance(parser);
     consume(parser, TOKEN_LPAREN, "Expect '(' after 'for'.");
     
+    // Check for for-in loop
+    if (check(parser, TOKEN_IDENTIFIER)) {
+        Token var_token = parser->current;
+        advance(parser);
+        if (match(parser, TOKEN_IN)) {
+            // This is a for-in loop
+            char* variable = strndup(var_token.start, var_token.length);
+            Expr* iterable = parse_expression(parser);
+            consume(parser, TOKEN_RPAREN, "Expect ')' after iterable.");
+            skip_newlines(parser);
+            
+            Stmt** body = NULL;
+            size_t body_count = 0;
+            
+            if (match(parser, TOKEN_LBRACE)) {
+                skip_newlines(parser);
+                while (!check(parser, TOKEN_RBRACE) && !check(parser, TOKEN_EOF)) {
+                    body = realloc(body, sizeof(Stmt*) * (body_count + 1));
+                    body[body_count++] = parse_declaration(parser);
+                    skip_newlines(parser);
+                }
+                consume(parser, TOKEN_RBRACE, "Expect '}' after block.");
+            } else {
+                body = realloc(body, sizeof(Stmt*) * (body_count + 1));
+                body[body_count++] = parse_statement(parser);
+            }
+            
+            Stmt* stmt = stmt_for_in(variable, iterable, body, body_count);
+            free(variable);
+            return stmt;
+        } else {
+            // Regular for loop, backtrack
+            parser->current = var_token;
+        }
+    }
+    
+    // Regular for loop
     Stmt* init = NULL;
     if (!match(parser, TOKEN_SEMICOLON)) {
         if (match(parser, TOKEN_LET) || match(parser, TOKEN_VAR)) {
@@ -415,8 +484,17 @@ static Stmt* parse_statement(Parser* parser) {
     if (check(parser, TOKEN_WHILE)) {
         return parse_while_stmt(parser);
     }
+    if (check(parser, TOKEN_DO)) {
+        return parse_do_while_stmt(parser);
+    }
     if (check(parser, TOKEN_FOR)) {
         return parse_for_stmt(parser);
+    }
+    if (check(parser, TOKEN_BREAK)) {
+        return parse_break_stmt(parser);
+    }
+    if (check(parser, TOKEN_CONTINUE)) {
+        return parse_continue_stmt(parser);
     }
     if (check(parser, TOKEN_IMPORT)) {
         return parse_import_stmt(parser);
@@ -574,6 +652,140 @@ static Stmt* parse_import_stmt(Parser* parser) {
     
     skip_newlines(parser);
     return stmt_import(buffer);
+}
+
+static Expr* parse_function_expr(Parser* parser) {
+    if (match(parser, TOKEN_DEF) || match(parser, TOKEN_FUNCTION)) {
+        // Anonymous function
+    } else {
+        consume(parser, TOKEN_LPAREN, "Expect '(' for function parameters.");
+    }
+    
+    char** params = NULL;
+    char** param_types = NULL;
+    size_t param_count = 0;
+    
+    if (!check(parser, TOKEN_RPAREN)) {
+        do {
+            consume(parser, TOKEN_IDENTIFIER, "Expect parameter name.");
+            params = realloc(params, sizeof(char*) * (param_count + 1));
+            param_types = realloc(param_types, sizeof(char*) * (param_count + 1));
+            params[param_count] = strndup(parser->previous.start, parser->previous.length);
+            param_types[param_count] = NULL;
+            
+            if (match(parser, TOKEN_COLON)) {
+                consume(parser, TOKEN_IDENTIFIER, "Expect type name.");
+                param_types[param_count] = strndup(parser->previous.start, parser->previous.length);
+            }
+            
+            param_count++;
+        } while (match(parser, TOKEN_COMMA));
+    }
+    
+    consume(parser, TOKEN_RPAREN, "Expect ')' after parameters.");
+    
+    char* return_type = NULL;
+    if (match(parser, TOKEN_ARROW) || match(parser, TOKEN_COLON)) {
+        consume(parser, TOKEN_IDENTIFIER, "Expect return type.");
+        return_type = strndup(parser->previous.start, parser->previous.length);
+    }
+    
+    skip_newlines(parser);
+    
+    Stmt** body = NULL;
+    size_t body_count = 0;
+    
+    if (match(parser, TOKEN_LBRACE)) {
+        skip_newlines(parser);
+        while (!check(parser, TOKEN_RBRACE) && !check(parser, TOKEN_EOF)) {
+            body = realloc(body, sizeof(Stmt*) * (body_count + 1));
+            body[body_count++] = parse_declaration(parser);
+            skip_newlines(parser);
+        }
+        consume(parser, TOKEN_RBRACE, "Expect '}' after block.");
+    } else {
+        // Single expression body
+        Expr* expr = parse_expression(parser);
+        body = malloc(sizeof(Stmt*));
+        body[0] = stmt_return(expr);
+        body_count = 1;
+    }
+    
+    return expr_function(params, param_types, param_count, return_type, body, body_count);
+}
+
+static Expr* parse_array_expr(Parser* parser) {
+    Expr** elements = NULL;
+    size_t count = 0;
+    
+    if (!check(parser, TOKEN_RBRACKET)) {
+        do {
+            elements = realloc(elements, sizeof(Expr*) * (count + 1));
+            elements[count++] = parse_expression(parser);
+        } while (match(parser, TOKEN_COMMA));
+    }
+    
+    consume(parser, TOKEN_RBRACKET, "Expect ']' after array elements.");
+    return expr_array(elements, count);
+}
+
+static Stmt* parse_do_while_stmt(Parser* parser) {
+    advance(parser); // consume 'do'
+    skip_newlines(parser);
+    
+    Stmt** body = NULL;
+    size_t body_count = 0;
+    
+    if (match(parser, TOKEN_LBRACE)) {
+        skip_newlines(parser);
+        while (!check(parser, TOKEN_RBRACE) && !check(parser, TOKEN_EOF)) {
+            body = realloc(body, sizeof(Stmt*) * (body_count + 1));
+            body[body_count++] = parse_declaration(parser);
+            skip_newlines(parser);
+        }
+        consume(parser, TOKEN_RBRACE, "Expect '}' after do block.");
+    } else {
+        body = realloc(body, sizeof(Stmt*) * (body_count + 1));
+        body[body_count++] = parse_statement(parser);
+    }
+    
+    consume(parser, TOKEN_WHILE, "Expect 'while' after do block.");
+    consume(parser, TOKEN_LPAREN, "Expect '(' after 'while'.");
+    Expr* condition = parse_expression(parser);
+    consume(parser, TOKEN_RPAREN, "Expect ')' after condition.");
+    skip_newlines(parser);
+    
+    return stmt_do_while(body, body_count, condition);
+}
+
+static Stmt* parse_break_stmt(Parser* parser) {
+    advance(parser); // consume 'break'
+    
+    char* label = NULL;
+    if (check(parser, TOKEN_IDENTIFIER)) {
+        label = strndup(parser->current.start, parser->current.length);
+        advance(parser);
+    }
+    
+    skip_newlines(parser);
+    Stmt* stmt = stmt_break(label);
+    if (label) free(label);
+    return stmt;
+}
+
+static Stmt* parse_continue_stmt(Parser* parser) {
+    advance(parser); // consume 'continue'
+    
+    char* label = NULL;
+    if (check(parser, TOKEN_IDENTIFIER)) {
+        label = strndup(parser->current.start, parser->current.length);
+        advance(parser);
+    }
+    
+    skip_newlines(parser);
+    Stmt* stmt = stmt_continue(label);
+    if (label) free(label);
+    return stmt;
 }
 
 void parser_init(Parser* parser, Lexer* lexer) {

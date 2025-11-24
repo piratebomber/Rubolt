@@ -1,0 +1,203 @@
+// Test file for nested functions and enhanced loops
+// This file tests the core functionality to ensure it works properly
+
+// Test 1: Simple nested function
+def test_simple_nested() -> void {
+    print("Test 1: Simple nested function");
+    
+    def outer(x: number) -> function {
+        def inner(y: number) -> number {
+            return x + y;
+        }
+        return inner;
+    }
+    
+    let add_five = outer(5);
+    let result = add_five(3);
+    print("Expected: 8, Got:", result);
+    print("Test 1:", result == 8 ? "PASS" : "FAIL");
+}
+
+// Test 2: For-in loop with array
+def test_for_in_array() -> void {
+    print("\nTest 2: For-in loop with array");
+    
+    let numbers = [1, 2, 3, 4, 5];
+    let sum = 0;
+    
+    for (num in numbers) {
+        sum = sum + num;
+    }
+    
+    print("Expected: 15, Got:", sum);
+    print("Test 2:", sum == 15 ? "PASS" : "FAIL");
+}
+
+// Test 3: For-in loop with range
+def test_for_in_range() -> void {
+    print("\nTest 3: For-in loop with range");
+    
+    let sum = 0;
+    for (i in range(1, 6)) {
+        sum = sum + i;
+    }
+    
+    print("Expected: 15, Got:", sum);
+    print("Test 3:", sum == 15 ? "PASS" : "FAIL");
+}
+
+// Test 4: Do-while loop
+def test_do_while() -> void {
+    print("\nTest 4: Do-while loop");
+    
+    let counter = 0;
+    let iterations = 0;
+    
+    do {
+        counter = counter + 1;
+        iterations = iterations + 1;
+    } while (counter < 3);
+    
+    print("Expected: 3, Got:", iterations);
+    print("Test 4:", iterations == 3 ? "PASS" : "FAIL");
+}
+
+// Test 5: Break and continue in loops
+def test_break_continue() -> void {
+    print("\nTest 5: Break and continue");
+    
+    let processed = [];
+    
+    for (i in range(1, 11)) {
+        if (i % 2 == 0) {
+            continue;
+        }
+        
+        if (i > 7) {
+            break;
+        }
+        
+        processed.append(i);
+    }
+    
+    // Should contain [1, 3, 5, 7]
+    let expected_length = 4;
+    print("Expected length: 4, Got:", processed.length);
+    print("Test 5:", processed.length == expected_length ? "PASS" : "FAIL");
+}
+
+// Test 6: Nested function with closure
+def test_closure() -> void {
+    print("\nTest 6: Closure test");
+    
+    def create_multiplier(factor: number) -> function {
+        def multiply(x: number) -> number {
+            return x * factor;
+        }
+        return multiply;
+    }
+    
+    let double = create_multiplier(2);
+    let triple = create_multiplier(3);
+    
+    let result1 = double(5);
+    let result2 = triple(4);
+    
+    print("Double 5 - Expected: 10, Got:", result1);
+    print("Triple 4 - Expected: 12, Got:", result2);
+    print("Test 6:", (result1 == 10 && result2 == 12) ? "PASS" : "FAIL");
+}
+
+// Test 7: Anonymous function
+def test_anonymous_function() -> void {
+    print("\nTest 7: Anonymous function");
+    
+    let square = (x: number) -> number {
+        return x * x;
+    };
+    
+    let result = square(4);
+    print("Expected: 16, Got:", result);
+    print("Test 7:", result == 16 ? "PASS" : "FAIL");
+}
+
+// Test 8: Nested loops with labels
+def test_nested_loops_labels() -> void {
+    print("\nTest 8: Nested loops with labels");
+    
+    let count = 0;
+    
+    outer: for (i in range(1, 4)) {
+        inner: for (j in range(1, 4)) {
+            count = count + 1;
+            
+            if (i == 2 && j == 2) {
+                break outer;
+            }
+        }
+    }
+    
+    // Should count: (1,1), (1,2), (1,3), (2,1), (2,2) = 5 iterations
+    print("Expected: 5, Got:", count);
+    print("Test 8:", count == 5 ? "PASS" : "FAIL");
+}
+
+// Test 9: Array operations
+def test_array_operations() -> void {
+    print("\nTest 9: Array operations");
+    
+    let arr = [1, 2, 3];
+    arr.append(4);
+    arr.append(5);
+    
+    let sum = 0;
+    for (item in arr) {
+        sum = sum + item;
+    }
+    
+    print("Expected: 15, Got:", sum);
+    print("Test 9:", sum == 15 ? "PASS" : "FAIL");
+}
+
+// Test 10: Function returning function
+def test_function_factory() -> void {
+    print("\nTest 10: Function factory");
+    
+    def create_adder(base: number) -> function {
+        def add(x: number) -> number {
+            return base + x;
+        }
+        return add;
+    }
+    
+    let add_ten = create_adder(10);
+    let add_twenty = create_adder(20);
+    
+    let result1 = add_ten(5);
+    let result2 = add_twenty(5);
+    
+    print("Add 10 to 5 - Expected: 15, Got:", result1);
+    print("Add 20 to 5 - Expected: 25, Got:", result2);
+    print("Test 10:", (result1 == 15 && result2 == 25) ? "PASS" : "FAIL");
+}
+
+// Main test runner
+def run_tests() -> void {
+    print("=== Rubolt Nested Functions and Loops Test Suite ===\n");
+    
+    test_simple_nested();
+    test_for_in_array();
+    test_for_in_range();
+    test_do_while();
+    test_break_continue();
+    test_closure();
+    test_anonymous_function();
+    test_nested_loops_labels();
+    test_array_operations();
+    test_function_factory();
+    
+    print("\n=== All Tests Complete ===");
+}
+
+// Run the tests
+run_tests();

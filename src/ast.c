@@ -126,6 +126,43 @@ Expr* expr_assign(const char* name, Expr* value) {
     return expr;
 }
 
+Expr* expr_function(char** params, char** param_types, size_t param_count, const char* return_type, Stmt** body, size_t body_count) {
+    Expr* expr = malloc(sizeof(Expr));
+    expr->type = EXPR_FUNCTION;
+    expr->as.function.params = params;
+    expr->as.function.param_types = param_types;
+    expr->as.function.param_count = param_count;
+    expr->as.function.return_type = return_type ? strdup(return_type) : NULL;
+    expr->as.function.body = body;
+    expr->as.function.body_count = body_count;
+    expr->as.function.is_nested = true;
+    return expr;
+}
+
+Expr* expr_array(Expr** elements, size_t count) {
+    Expr* expr = malloc(sizeof(Expr));
+    expr->type = EXPR_ARRAY;
+    expr->as.array.elements = elements;
+    expr->as.array.count = count;
+    return expr;
+}
+
+Expr* expr_index(Expr* object, Expr* index) {
+    Expr* expr = malloc(sizeof(Expr));
+    expr->type = EXPR_INDEX;
+    expr->as.index.object = object;
+    expr->as.index.index = index;
+    return expr;
+}
+
+Expr* expr_member(Expr* object, const char* property) {
+    Expr* expr = malloc(sizeof(Expr));
+    expr->type = EXPR_MEMBER;
+    expr->as.member.object = object;
+    expr->as.member.property = strdup(property);
+    return expr;
+}
+
 void expr_free(Expr* expr) {
     if (!expr) return;
     
@@ -155,6 +192,33 @@ void expr_free(Expr* expr) {
         case EXPR_ASSIGN:
             free(expr->as.assign.name);
             expr_free(expr->as.assign.value);
+            break;
+        case EXPR_FUNCTION:
+            for (size_t i = 0; i < expr->as.function.param_count; i++) {
+                free(expr->as.function.params[i]);
+                if (expr->as.function.param_types[i]) free(expr->as.function.param_types[i]);
+            }
+            free(expr->as.function.params);
+            free(expr->as.function.param_types);
+            if (expr->as.function.return_type) free(expr->as.function.return_type);
+            for (size_t i = 0; i < expr->as.function.body_count; i++) {
+                stmt_free(expr->as.function.body[i]);
+            }
+            free(expr->as.function.body);
+            break;
+        case EXPR_ARRAY:
+            for (size_t i = 0; i < expr->as.array.count; i++) {
+                expr_free(expr->as.array.elements[i]);
+            }
+            free(expr->as.array.elements);
+            break;
+        case EXPR_INDEX:
+            expr_free(expr->as.index.object);
+            expr_free(expr->as.index.index);
+            break;
+        case EXPR_MEMBER:
+            expr_free(expr->as.member.object);
+            free(expr->as.member.property);
             break;
         default:
             break;
@@ -190,6 +254,9 @@ Stmt* stmt_function(const char* name, char** params, char** param_types, size_t 
     stmt->as.function.return_type = return_type ? strdup(return_type) : NULL;
     stmt->as.function.body = body;
     stmt->as.function.body_count = body_count;
+    stmt->as.function.is_nested = false;
+    stmt->as.function.nested_functions = NULL;
+    stmt->as.function.nested_count = 0;
     return stmt;
 }
 
@@ -253,6 +320,39 @@ Stmt* stmt_import(const char* spec) {
     return stmt;
 }
 
+Stmt* stmt_for_in(const char* variable, Expr* iterable, Stmt** body, size_t body_count) {
+    Stmt* stmt = malloc(sizeof(Stmt));
+    stmt->type = STMT_FOR_IN;
+    stmt->as.for_in_stmt.variable = strdup(variable);
+    stmt->as.for_in_stmt.iterable = iterable;
+    stmt->as.for_in_stmt.body = body;
+    stmt->as.for_in_stmt.body_count = body_count;
+    return stmt;
+}
+
+Stmt* stmt_do_while(Stmt** body, size_t body_count, Expr* condition) {
+    Stmt* stmt = malloc(sizeof(Stmt));
+    stmt->type = STMT_DO_WHILE;
+    stmt->as.do_while_stmt.body = body;
+    stmt->as.do_while_stmt.body_count = body_count;
+    stmt->as.do_while_stmt.condition = condition;
+    return stmt;
+}
+
+Stmt* stmt_break(const char* label) {
+    Stmt* stmt = malloc(sizeof(Stmt));
+    stmt->type = STMT_BREAK;
+    stmt->as.break_stmt.label = label ? strdup(label) : NULL;
+    return stmt;
+}
+
+Stmt* stmt_continue(const char* label) {
+    Stmt* stmt = malloc(sizeof(Stmt));
+    stmt->type = STMT_CONTINUE;
+    stmt->as.continue_stmt.label = label ? strdup(label) : NULL;
+    return stmt;
+}
+
 void stmt_free(Stmt* stmt) {
     if (!stmt) return;
     
@@ -278,6 +378,10 @@ void stmt_free(Stmt* stmt) {
                 stmt_free(stmt->as.function.body[i]);
             }
             free(stmt->as.function.body);
+            for (size_t i = 0; i < stmt->as.function.nested_count; i++) {
+                stmt_free((Stmt*)stmt->as.function.nested_functions[i]);
+            }
+            free(stmt->as.function.nested_functions);
             break;
         case STMT_RETURN:
             expr_free(stmt->as.return_stmt.value);
@@ -321,6 +425,94 @@ void stmt_free(Stmt* stmt) {
         case STMT_IMPORT:
             free(stmt->as.import_stmt.spec);
             break;
+        case STMT_FOR_IN:
+            free(stmt->as.for_in_stmt.variable);
+            expr_free(stmt->as.for_in_stmt.iterable);
+            for (size_t i = 0; i < stmt->as.for_in_stmt.body_count; i++) {
+                stmt_free(stmt->as.for_in_stmt.body[i]);
+            }
+            free(stmt->as.for_in_stmt.body);
+            break;
+        case STMT_DO_WHILE:
+            for (size_t i = 0; i < stmt->as.do_while_stmt.body_count; i++) {
+                stmt_free(stmt->as.do_while_stmt.body[i]);
+            }
+            free(stmt->as.do_while_stmt.body);
+            expr_free(stmt->as.do_while_stmt.condition);
+            break;
+        case STMT_BREAK:
+            if (stmt->as.break_stmt.label) free(stmt->as.break_stmt.label);
+            break;
+        case STMT_CONTINUE:
+            if (stmt->as.continue_stmt.label) free(stmt->as.continue_stmt.label);
+            break;
     }
     free(stmt);
+}
+
+// Scope management implementation
+Scope* scope_create(Scope* parent) {
+    Scope* scope = malloc(sizeof(Scope));
+    scope->parent = parent;
+    scope->variables = malloc(sizeof(char*) * 64);
+    scope->var_count = 0;
+    scope->functions = malloc(sizeof(char*) * 32);
+    scope->func_count = 0;
+    return scope;
+}
+
+void scope_free(Scope* scope) {
+    if (!scope) return;
+    
+    for (size_t i = 0; i < scope->var_count; i++) {
+        free(scope->variables[i]);
+    }
+    free(scope->variables);
+    
+    for (size_t i = 0; i < scope->func_count; i++) {
+        free(scope->functions[i]);
+    }
+    free(scope->functions);
+    
+    free(scope);
+}
+
+bool scope_define_var(Scope* scope, const char* name) {
+    scope->variables[scope->var_count] = strdup(name);
+    scope->var_count++;
+    return true;
+}
+
+bool scope_define_func(Scope* scope, const char* name) {
+    scope->functions[scope->func_count] = strdup(name);
+    scope->func_count++;
+    return true;
+}
+
+bool scope_lookup_var(Scope* scope, const char* name) {
+    for (size_t i = 0; i < scope->var_count; i++) {
+        if (strcmp(scope->variables[i], name) == 0) {
+            return true;
+        }
+    }
+    
+    if (scope->parent) {
+        return scope_lookup_var(scope->parent, name);
+    }
+    
+    return false;
+}
+
+bool scope_lookup_func(Scope* scope, const char* name) {
+    for (size_t i = 0; i < scope->func_count; i++) {
+        if (strcmp(scope->functions[i], name) == 0) {
+            return true;
+        }
+    }
+    
+    if (scope->parent) {
+        return scope_lookup_func(scope->parent, name);
+    }
+    
+    return false;
 }

@@ -158,11 +158,20 @@ Value builtin_type(Environment *env, Value *args, size_t arg_count) {
 // Expression evaluation
 Value evaluate_expression(Interpreter *interp, Expr *expr) {
     switch (expr->type) {
-        case EXPR_LITERAL:
-            return evaluate_literal(interp, &expr->as.literal);
+        case EXPR_NUMBER:
+            return value_number(expr->as.number);
+            
+        case EXPR_STRING:
+            return value_string(expr->as.string);
+            
+        case EXPR_BOOL:
+            return value_bool(expr->as.boolean);
+            
+        case EXPR_NULL:
+            return value_null();
             
         case EXPR_IDENTIFIER:
-            return environment_get(interp->current_env, expr->as.identifier.name);
+            return environment_get(interp->current_env, expr->as.identifier);
             
         case EXPR_BINARY:
             return evaluate_binary(interp, &expr->as.binary);
@@ -173,39 +182,51 @@ Value evaluate_expression(Interpreter *interp, Expr *expr) {
         case EXPR_CALL:
             return evaluate_call(interp, &expr->as.call);
             
-        case EXPR_MEMBER:
-            return evaluate_member(interp, &expr->as.member);
+        case EXPR_ASSIGN:
+            return evaluate_assignment(interp, &expr->as.assign);
+            
+        case EXPR_FUNCTION:
+            return evaluate_function(interp, &expr->as.function);
+            
+        case EXPR_ARRAY:
+            return evaluate_array(interp, &expr->as.array);
             
         case EXPR_INDEX:
             return evaluate_index(interp, &expr->as.index);
             
-        case EXPR_ASSIGNMENT:
-            return evaluate_assignment(interp, &expr->as.assignment);
-            
-        case EXPR_MATCH:
-            return evaluate_match(interp, &expr->as.match);
-            
-        case EXPR_ASYNC:
-            return evaluate_async(interp, &expr->as.async);
+        case EXPR_MEMBER:
+            return evaluate_member(interp, &expr->as.member);
             
         default:
             return value_null();
     }
 }
 
-Value evaluate_literal(Interpreter *interp, LiteralExpr *expr) {
-    switch (expr->value_type) {
-        case VALUE_NUMBER:
-            return value_number(expr->as.number);
-        case VALUE_STRING:
-            return value_string(expr->as.string);
-        case VALUE_BOOL:
-            return value_bool(expr->as.boolean);
-        case VALUE_NULL:
-            return value_null();
-        default:
-            return value_null();
+Value evaluate_function(Interpreter *interp, FunctionExpr *expr) {
+    // Create function value with current environment as closure
+    FunctionStmt* func_stmt = malloc(sizeof(FunctionStmt));
+    func_stmt->name = NULL; // Anonymous function
+    func_stmt->params = expr->params;
+    func_stmt->param_types = expr->param_types;
+    func_stmt->param_count = expr->param_count;
+    func_stmt->return_type = expr->return_type;
+    func_stmt->body = expr->body;
+    func_stmt->body_count = expr->body_count;
+    func_stmt->is_nested = true;
+    func_stmt->nested_functions = NULL;
+    func_stmt->nested_count = 0;
+    
+    return value_function(func_stmt, interp->current_env);
+}
+
+Value evaluate_array(Interpreter *interp, ArrayExpr *expr) {
+    Value* elements = malloc(sizeof(Value) * expr->count);
+    
+    for (size_t i = 0; i < expr->count; i++) {
+        elements[i] = evaluate_expression(interp, expr->elements[i]);
     }
+    
+    return value_array(elements, expr->count);
 }
 
 Value evaluate_binary(Interpreter *interp, BinaryExpr *expr) {
@@ -271,56 +292,31 @@ Value evaluate_unary(Interpreter *interp, UnaryExpr *expr) {
 Value evaluate_call(Interpreter *interp, CallExpr *expr) {
     Value callee = evaluate_expression(interp, expr->callee);
     
-    if (callee.type != VALUE_OBJECT) {
-        return value_null();
-    }
-    
     // Evaluate arguments
     Value *args = malloc(sizeof(Value) * expr->arg_count);
     for (size_t i = 0; i < expr->arg_count; i++) {
         args[i] = evaluate_expression(interp, expr->args[i]);
     }
     
-    // Check if it's a built-in function
-    if (callee.as.object == builtin_print) {
-        Value result = builtin_print(interp->current_env, args, expr->arg_count);
-        free(args);
-        return result;
-    }
+    Value result = value_null();
     
-    // Check if it's a user-defined function
-    if (callee.as.object) {
-        Function *func = (Function *)callee.as.object;
-        
-        // Check for JIT compilation
-        if (interp->jit_enabled && func->call_count > JIT_THRESHOLD) {
-            return jit_call_function(interp, func, args, expr->arg_count);
+    if (callee.type == VALUE_FUNCTION) {
+        result = call_nested_function(interp, &callee.as.function, args, expr->arg_count);
+    } else if (callee.type == VALUE_OBJECT) {
+        // Built-in function call
+        if (callee.as.object == builtin_print) {
+            result = builtin_print(interp->current_env, args, expr->arg_count);
+        } else if (callee.as.object == builtin_len) {
+            result = builtin_len(interp->current_env, args, expr->arg_count);
+        } else if (callee.as.object == builtin_type) {
+            result = builtin_type(interp->current_env, args, expr->arg_count);
+        } else if (callee.as.object == builtin_range) {
+            result = builtin_range(interp->current_env, args, expr->arg_count);
         }
-        
-        func->call_count++;
-        
-        // Create new environment for function
-        Environment *func_env = environment_create(interp->current_env);
-        
-        // Bind parameters
-        for (size_t i = 0; i < func->param_count && i < expr->arg_count; i++) {
-            environment_define(func_env, func->params[i].name, args[i]);
-        }
-        
-        // Execute function body
-        Environment *prev_env = interp->current_env;
-        interp->current_env = func_env;
-        
-        Value result = execute_statement(interp, func->body);
-        
-        interp->current_env = prev_env;
-        free(args);
-        
-        return result;
     }
     
     free(args);
-    return value_null();
+    return result;
 }
 
 Value evaluate_member(Interpreter *interp, MemberExpr *expr) {
@@ -355,13 +351,9 @@ Value evaluate_index(Interpreter *interp, IndexExpr *expr) {
     return value_null();
 }
 
-Value evaluate_assignment(Interpreter *interp, AssignmentExpr *expr) {
+Value evaluate_assignment(Interpreter *interp, AssignExpr *expr) {
     Value value = evaluate_expression(interp, expr->value);
-    
-    if (expr->target->type == EXPR_IDENTIFIER) {
-        environment_set(interp->current_env, expr->target->as.identifier.name, value);
-    }
-    
+    environment_set(interp->current_env, expr->name, value);
     return value;
 }
 
@@ -402,14 +394,14 @@ Value evaluate_async(Interpreter *interp, AsyncExpr *expr) {
 // Statement execution
 Value execute_statement(Interpreter *interp, Stmt *stmt) {
     switch (stmt->type) {
-        case STMT_EXPRESSION:
-            return evaluate_expression(interp, stmt->as.expression.expr);
+        case STMT_EXPR:
+            return evaluate_expression(interp, stmt->as.expression);
             
         case STMT_VAR_DECL:
             return execute_var_decl(interp, &stmt->as.var_decl);
             
-        case STMT_FUNCTION_DECL:
-            return execute_function_decl(interp, &stmt->as.function_decl);
+        case STMT_FUNCTION:
+            return execute_function_decl(interp, &stmt->as.function);
             
         case STMT_IF:
             return execute_if(interp, &stmt->as.if_stmt);
@@ -420,17 +412,31 @@ Value execute_statement(Interpreter *interp, Stmt *stmt) {
         case STMT_FOR:
             return execute_for(interp, &stmt->as.for_stmt);
             
+        case STMT_FOR_IN:
+            return execute_for_in(interp, &stmt->as.for_in_stmt);
+            
+        case STMT_DO_WHILE:
+            return execute_do_while(interp, &stmt->as.do_while_stmt);
+            
         case STMT_RETURN:
             return execute_return(interp, &stmt->as.return_stmt);
             
         case STMT_BLOCK:
             return execute_block(interp, &stmt->as.block);
             
-        case STMT_MATCH:
-            return execute_match(interp, &stmt->as.match_stmt);
+        case STMT_BREAK:
+            return execute_break(interp, &stmt->as.break_stmt);
             
-        case STMT_TRY:
-            return execute_try(interp, &stmt->as.try_stmt);
+        case STMT_CONTINUE:
+            return execute_continue(interp, &stmt->as.continue_stmt);
+            
+        case STMT_PRINT:
+            {
+                Value val = evaluate_expression(interp, stmt->as.print_stmt.expression);
+                value_print(val);
+                printf("\n");
+                return value_null();
+            }
             
         default:
             return value_null();
@@ -447,17 +453,9 @@ Value execute_var_decl(Interpreter *interp, VarDeclStmt *stmt) {
     return value_null();
 }
 
-Value execute_function_decl(Interpreter *interp, FunctionDeclStmt *stmt) {
-    Function *func = malloc(sizeof(Function));
-    func->name = strdup(stmt->name);
-    func->param_count = stmt->param_count;
-    func->params = stmt->params;
-    func->body = stmt->body;
-    func->call_count = 0;
-    func->jit_compiled = false;
-    func->native_code = NULL;
-    
-    environment_define(interp->current_env, stmt->name, value_object(func));
+Value execute_function_decl(Interpreter *interp, FunctionStmt *stmt) {
+    Value func_value = value_function(stmt, interp->current_env);
+    environment_define(interp->current_env, stmt->name, func_value);
     return value_null();
 }
 
@@ -497,27 +495,127 @@ Value execute_while(Interpreter *interp, WhileStmt *stmt) {
 }
 
 Value execute_for(Interpreter *interp, ForStmt *stmt) {
-    Value iterable = evaluate_expression(interp, stmt->iterable);
+    // Create new scope for loop
+    Environment* loop_env = environment_create(interp->current_env);
+    Environment* prev_env = interp->current_env;
+    interp->current_env = loop_env;
+    
     Value result = value_null();
     
-    // Handle range iteration (simplified)
-    if (iterable.type == VALUE_OBJECT) {
-        Range *range = (Range *)iterable.as.object;
+    // Execute initialization
+    if (stmt->init) {
+        execute_statement(interp, stmt->init);
+    }
+    
+    // Loop execution
+    while (true) {
+        // Check condition
+        if (stmt->condition) {
+            Value condition = evaluate_expression(interp, stmt->condition);
+            if (!is_truthy(condition)) break;
+        }
         
-        for (int i = range->start; i < range->end; i += range->step) {
-            environment_define(interp->current_env, stmt->variable, value_number(i));
-            result = execute_statement(interp, stmt->body);
+        // Execute body
+        for (size_t i = 0; i < stmt->body_count; i++) {
+            result = execute_statement(interp, stmt->body[i]);
             
+            if (interp->return_flag) goto cleanup;
             if (interp->break_flag) {
                 interp->break_flag = false;
-                break;
+                goto cleanup;
             }
             if (interp->continue_flag) {
                 interp->continue_flag = false;
-                continue;
+                break;
+            }
+        }
+        
+        // Execute increment
+        if (stmt->increment) {
+            evaluate_expression(interp, stmt->increment);
+        }
+    }
+    
+cleanup:
+    interp->current_env = prev_env;
+    return result;
+}
+
+Value execute_for_in(Interpreter *interp, ForInStmt *stmt) {
+    Value iterable = evaluate_expression(interp, stmt->iterable);
+    Value result = value_null();
+    
+    // Create new scope for loop
+    Environment* loop_env = environment_create(interp->current_env);
+    Environment* prev_env = interp->current_env;
+    interp->current_env = loop_env;
+    
+    if (iterable.type == VALUE_ARRAY) {
+        for (size_t i = 0; i < iterable.as.array.count; i++) {
+            environment_define(interp->current_env, stmt->variable, iterable.as.array.elements[i]);
+            
+            for (size_t j = 0; j < stmt->body_count; j++) {
+                result = execute_statement(interp, stmt->body[j]);
+                
+                if (interp->return_flag) goto cleanup;
+                if (interp->break_flag) {
+                    interp->break_flag = false;
+                    goto cleanup;
+                }
+                if (interp->continue_flag) {
+                    interp->continue_flag = false;
+                    break;
+                }
+            }
+        }
+    } else if (iterable.type == VALUE_OBJECT) {
+        Range* range = (Range*)iterable.as.object;
+        for (int i = range->start; i < range->end; i += range->step) {
+            environment_define(interp->current_env, stmt->variable, value_number(i));
+            
+            for (size_t j = 0; j < stmt->body_count; j++) {
+                result = execute_statement(interp, stmt->body[j]);
+                
+                if (interp->return_flag) goto cleanup;
+                if (interp->break_flag) {
+                    interp->break_flag = false;
+                    goto cleanup;
+                }
+                if (interp->continue_flag) {
+                    interp->continue_flag = false;
+                    break;
+                }
             }
         }
     }
+    
+cleanup:
+    interp->current_env = prev_env;
+    return result;
+}
+
+Value execute_do_while(Interpreter *interp, DoWhileStmt *stmt) {
+    Value result = value_null();
+    
+    do {
+        for (size_t i = 0; i < stmt->body_count; i++) {
+            result = execute_statement(interp, stmt->body[i]);
+            
+            if (interp->return_flag) return result;
+            if (interp->break_flag) {
+                interp->break_flag = false;
+                return result;
+            }
+            if (interp->continue_flag) {
+                interp->continue_flag = false;
+                break;
+            }
+        }
+        
+        Value condition = evaluate_expression(interp, stmt->condition);
+        if (!is_truthy(condition)) break;
+        
+    } while (true);
     
     return result;
 }
@@ -551,60 +649,122 @@ Value execute_block(Interpreter *interp, BlockStmt *stmt) {
     return result;
 }
 
-Value execute_match(Interpreter *interp, MatchStmt *stmt) {
-    Value value = evaluate_expression(interp, stmt->value);
-    
-    for (size_t i = 0; i < stmt->case_count; i++) {
-        MatchCase *case_stmt = &stmt->cases[i];
-        
-        if (pattern_match(case_stmt->pattern, value, interp->current_env)) {
-            if (case_stmt->guard) {
-                Value guard_result = evaluate_expression(interp, case_stmt->guard);
-                if (!is_truthy(guard_result)) {
-                    continue;
-                }
-            }
-            
-            return execute_statement(interp, case_stmt->body);
-        }
+Value execute_break(Interpreter *interp, BreakStmt *stmt) {
+    interp->break_flag = true;
+    if (stmt->label) {
+        interp->break_label = strdup(stmt->label);
     }
-    
     return value_null();
 }
 
-Value execute_try(Interpreter *interp, TryStmt *stmt) {
-    // Set up exception handler
-    ExceptionHandler handler;
-    handler.previous = interp->current_handler;
-    interp->current_handler = &handler;
+Value execute_continue(Interpreter *interp, ContinueStmt *stmt) {
+    interp->continue_flag = true;
+    if (stmt->label) {
+        interp->continue_label = strdup(stmt->label);
+    }
+    return value_null();
+}
+
+// Enhanced value operations
+Value value_array(Value* elements, size_t count) {
+    Value val = {VALUE_ARRAY};
+    val.as.array.elements = elements;
+    val.as.array.count = count;
+    return val;
+}
+
+Value value_function(FunctionStmt* decl, Environment* closure) {
+    Value val = {VALUE_FUNCTION};
+    val.as.function.declaration = decl;
+    val.as.function.closure = closure;
+    val.as.function.is_native = false;
+    val.as.function.native_func = NULL;
+    return val;
+}
+
+void value_print(Value value) {
+    switch (value.type) {
+        case VALUE_NULL:
+            printf("null");
+            break;
+        case VALUE_BOOL:
+            printf("%s", value.as.boolean ? "true" : "false");
+            break;
+        case VALUE_NUMBER:
+            printf("%g", value.as.number);
+            break;
+        case VALUE_STRING:
+            printf("%s", value.as.string);
+            break;
+        case VALUE_ARRAY:
+            printf("[");
+            for (size_t i = 0; i < value.as.array.count; i++) {
+                value_print(value.as.array.elements[i]);
+                if (i < value.as.array.count - 1) printf(", ");
+            }
+            printf("]");
+            break;
+        case VALUE_FUNCTION:
+            printf("<function>");
+            break;
+        default:
+            printf("<object>");
+            break;
+    }
+}
+
+// Nested function call implementation
+Value call_nested_function(Interpreter *interp, struct { FunctionStmt* declaration; Environment* closure; bool is_native; void* native_func; } *func, Value* args, size_t arg_count) {
+    // Create function environment with closure
+    Environment* func_env = environment_create(func->closure);
+    
+    // Bind parameters
+    for (size_t i = 0; i < func->declaration->param_count && i < arg_count; i++) {
+        environment_define(func_env, func->declaration->params[i], args[i]);
+    }
+    
+    // Execute function body
+    Environment* prev_env = interp->current_env;
+    interp->current_env = func_env;
     
     Value result = value_null();
+    bool prev_return_flag = interp->return_flag;
+    interp->return_flag = false;
     
-    if (setjmp(handler.jump_buffer) == 0) {
-        // Execute try block
-        result = execute_statement(interp, stmt->try_block);
-    } else {
-        // Exception occurred, execute catch blocks
-        Exception *ex = handler.current_exception;
-        
-        for (size_t i = 0; i < stmt->catch_count; i++) {
-            CatchClause *catch_clause = &stmt->catch_clauses[i];
-            
-            if (strcmp(ex->type, catch_clause->exception_type) == 0) {
-                environment_define(interp->current_env, catch_clause->variable, value_object(ex));
-                result = execute_statement(interp, catch_clause->body);
-                break;
-            }
+    for (size_t i = 0; i < func->declaration->body_count; i++) {
+        result = execute_statement(interp, func->declaration->body[i]);
+        if (interp->return_flag) {
+            result = interp->return_value;
+            break;
         }
     }
     
-    // Execute finally block
-    if (stmt->finally_block) {
-        execute_statement(interp, stmt->finally_block);
+    interp->return_flag = prev_return_flag;
+    interp->current_env = prev_env;
+    
+    return result;
+}
+
+Value builtin_range(Environment* env, Value* args, size_t arg_count) {
+    if (arg_count < 1 || arg_count > 3) return value_null();
+    
+    Range* range = malloc(sizeof(Range));
+    
+    if (arg_count == 1) {
+        range->start = 0;
+        range->end = (int)args[0].as.number;
+        range->step = 1;
+    } else if (arg_count == 2) {
+        range->start = (int)args[0].as.number;
+        range->end = (int)args[1].as.number;
+        range->step = 1;
+    } else {
+        range->start = (int)args[0].as.number;
+        range->end = (int)args[1].as.number;
+        range->step = (int)args[2].as.number;
     }
     
-    interp->current_handler = handler.previous;
-    return result;
+    return value_object(range);
 }
 
 // Utility functions
@@ -618,6 +778,8 @@ bool is_truthy(Value value) {
             return value.as.number != 0.0;
         case VALUE_STRING:
             return strlen(value.as.string) > 0;
+        case VALUE_ARRAY:
+            return value.as.array.count > 0;
         default:
             return true;
     }

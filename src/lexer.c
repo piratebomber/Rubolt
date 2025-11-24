@@ -173,7 +173,14 @@ static TokenType identifier_type(Lexer* lexer) {
                 }
             }
             break;
-        case 'd': return check_keyword(lexer, 1, 2, "ef", TOKEN_DEF);
+        case 'd':
+            if (lexer->current - lexer->start > 1) {
+                switch (lexer->start[1]) {
+                    case 'e': return check_keyword(lexer, 2, 1, "f", TOKEN_DEF);
+                    case 'o': return check_keyword(lexer, 2, 0, "", TOKEN_DO);
+                }
+            }
+            break;
         case 'e':
             if (lexer->current - lexer->start > 1) {
                 switch (lexer->start[1]) {
@@ -202,6 +209,7 @@ static TokenType identifier_type(Lexer* lexer) {
                 switch (lexer->start[1]) {
                     case 'f': return check_keyword(lexer, 2, 0, "", TOKEN_IF);
                     case 'm': return check_keyword(lexer, 2, 4, "port", TOKEN_IMPORT);
+                    case 'n': return check_keyword(lexer, 2, 0, "", TOKEN_IN);
                 }
             }
             break;
@@ -230,6 +238,27 @@ static TokenType identifier_type(Lexer* lexer) {
             }
             if (lexer->current - lexer->start == 6) {
                 return check_keyword(lexer, 1, 5, "rintf", TOKEN_PRINTF);
+            }
+            break;
+        case 'm':
+            if (lexer->current - lexer->start > 1) {
+                switch (lexer->start[1]) {
+                    case 'a': return check_keyword(lexer, 2, 3, "tch", TOKEN_MATCH);
+                }
+            }
+            break;
+        case 'c':
+            if (lexer->current - lexer->start > 1) {
+                switch (lexer->start[1]) {
+                    case 'a': return check_keyword(lexer, 2, 2, "se", TOKEN_CASE);
+                }
+            }
+            break;
+        case 'd':
+            if (lexer->current - lexer->start > 1) {
+                switch (lexer->start[1]) {
+                    case 'e': return check_keyword(lexer, 2, 5, "fault", TOKEN_DEFAULT);
+                }
             }
             break;
         case 'r': return check_keyword(lexer, 1, 5, "eturn", TOKEN_RETURN);
@@ -323,6 +352,13 @@ const char* token_type_to_string(TokenType type) {
         case TOKEN_ELSE: return "ELSE";
         case TOKEN_FOR: return "FOR";
         case TOKEN_WHILE: return "WHILE";
+        case TOKEN_DO: return "DO";
+        case TOKEN_IN: return "IN";
+        case TOKEN_BREAK: return "BREAK";
+        case TOKEN_CONTINUE: return "CONTINUE";
+        case TOKEN_MATCH: return "MATCH";
+        case TOKEN_CASE: return "CASE";
+        case TOKEN_DEFAULT: return "DEFAULT";
         case TOKEN_TRUE: return "TRUE";
         case TOKEN_FALSE: return "FALSE";
         case TOKEN_NULL: return "NULL";

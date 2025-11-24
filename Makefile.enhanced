@@ -1,0 +1,110 @@
+# Enhanced Rubolt Makefile
+# Builds the Rubolt interpreter with nested functions and enhanced loops
+
+CC = gcc
+CFLAGS = -Wall -Wextra -std=c99 -O2 -I.
+LDFLAGS = -lm
+
+# Directories
+SRCDIR = src
+GCDIR = gc
+RCDIR = rc
+RUNTIMEDIR = runtime
+COLLECTIONSDIR = collections
+BUILDDIR = build
+
+# Source files
+SOURCES = $(SRCDIR)/ast.c \
+          $(SRCDIR)/lexer.c \
+          $(SRCDIR)/parser.c \
+          $(SRCDIR)/interpreter.c \
+          $(SRCDIR)/main.c \
+          $(GCDIR)/gc.c \
+          $(GCDIR)/type_info.c \
+          $(RCDIR)/rc.c \
+          $(RUNTIMEDIR)/runtime.c \
+          $(RUNTIMEDIR)/manager.c \
+          $(COLLECTIONSDIR)/rb_list.c \
+          $(COLLECTIONSDIR)/rb_collections.c
+
+# Object files
+OBJECTS = $(SOURCES:%.c=$(BUILDDIR)/%.o)
+
+# Target executable
+TARGET = $(BUILDDIR)/rubolt-enhanced
+
+# Default target
+all: $(TARGET)
+
+# Create build directory
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
+	mkdir -p $(BUILDDIR)/$(SRCDIR)
+	mkdir -p $(BUILDDIR)/$(GCDIR)
+	mkdir -p $(BUILDDIR)/$(RCDIR)
+	mkdir -p $(BUILDDIR)/$(RUNTIMEDIR)
+	mkdir -p $(BUILDDIR)/$(COLLECTIONSDIR)
+
+# Compile object files
+$(BUILDDIR)/%.o: %.c | $(BUILDDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Link executable
+$(TARGET): $(OBJECTS)
+	$(CC) $(OBJECTS) -o $@ $(LDFLAGS)
+
+# Test targets
+test: $(TARGET)
+	@echo "Running nested functions test suite..."
+	./$(TARGET) examples/test_nested_loops.rbo
+
+demo: $(TARGET)
+	@echo "Running comprehensive demo..."
+	./$(TARGET) examples/nested_functions_demo.rbo
+
+# Clean build artifacts
+clean:
+	rm -rf $(BUILDDIR)
+
+# Install (optional)
+install: $(TARGET)
+	cp $(TARGET) /usr/local/bin/rubolt-enhanced
+
+# Development targets
+debug: CFLAGS += -g -DDEBUG
+debug: $(TARGET)
+
+profile: CFLAGS += -pg
+profile: LDFLAGS += -pg
+profile: $(TARGET)
+
+# Check for memory leaks (requires valgrind)
+memcheck: $(TARGET)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(TARGET) examples/test_nested_loops.rbo
+
+# Format code (requires clang-format)
+format:
+	find $(SRCDIR) $(GCDIR) $(RCDIR) $(RUNTIMEDIR) $(COLLECTIONSDIR) -name "*.c" -o -name "*.h" | xargs clang-format -i
+
+# Static analysis (requires cppcheck)
+analyze:
+	cppcheck --enable=all --std=c99 $(SRCDIR) $(GCDIR) $(RCDIR) $(RUNTIMEDIR) $(COLLECTIONSDIR)
+
+# Help target
+help:
+	@echo "Enhanced Rubolt Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all      - Build the enhanced Rubolt interpreter"
+	@echo "  test     - Run the test suite"
+	@echo "  demo     - Run the comprehensive demo"
+	@echo "  clean    - Remove build artifacts"
+	@echo "  install  - Install to /usr/local/bin"
+	@echo "  debug    - Build with debug symbols"
+	@echo "  profile  - Build with profiling support"
+	@echo "  memcheck - Run with Valgrind memory checking"
+	@echo "  format   - Format source code"
+	@echo "  analyze  - Run static analysis"
+	@echo "  help     - Show this help message"
+
+.PHONY: all test demo clean install debug profile memcheck format analyze help
