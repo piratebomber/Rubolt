@@ -221,7 +221,7 @@ jobs:
           doc8 Docs/ || echo "RST validation skipped"
 
       - name: Check Markdown syntax
-        uses: DavidAnson/markdownlint-cli2-action@v15
+        uses: DavidAnson/markdownlint-cli2-action@v20
         with:
           globs: |
             README.md
